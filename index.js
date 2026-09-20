@@ -1,6 +1,6 @@
 const OWNER = "itsk4to";
 const REPO = "K-1";
-const FILE = "script";
+const FILE = "scripts";
 const BRANCH = "main";
 
 export default {
