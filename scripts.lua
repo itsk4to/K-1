@@ -1,633 +1,1456 @@
 --[[
-    Funky Friday AutoPlayer - Simulation Build
-    + Accuracy Sliders
-    + Release Delay Slider
-    + Manual Force Mode
-    + Keybind (PC) + On-screen Buttons (Mobile)
-    + Full Mobile Support
+    K4to ESP + Target Selector
+    Script by itsK4to
+
+    Features:
+    - 2D ESP Box
+    - Name
+    - Distance
+    - Health bar
+    - Team check
+    - Alive check
+    - Visibility check
+    - FOV circle
+    - Closest target selector
+    - Target highlight
+    - Max distance
+    - PC + Mobile
+    - Draggable GUI
+    - RightCtrl = Cursor Mode
 ]]
 
-local RunService = game:GetService("RunService")
+--========================================================--
+-- SERVICES
+--========================================================--
+
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = Workspace.CurrentCamera
 
-local IS_MOBILE = UserInputService.TouchEnabled
-
--- =========================================================
+--========================================================--
 -- SETTINGS
--- =========================================================
+--========================================================--
 
 local Settings = {
-    Enabled = false,
 
-    Accuracy = {
-        Sick = 100,
-        Good = 0,
-        OK = 0,
-        Bad = 0,
-        Miss = 0,
+    ESP = {
+        Enabled = true,
+        Box = true,
+        Name = true,
+        Distance = true,
+        Health = true,
+
+        TeamCheck = true,
+        AliveCheck = true,
+        VisibilityCheck = false,
+
+        MaxDistance = 1500,
+
+        BoxColor = Color3.fromRGB(255, 255, 255),
+        EnemyColor = Color3.fromRGB(255, 80, 80),
+        TeamColor = Color3.fromRGB(80, 170, 255),
+
+        TextSize = 12,
     },
 
-    Timing = {
-        Sick = 0.000,
-        Good = 0.035,
-        OK = 0.075,
-        Bad = 0.120,
+    Target = {
+        Enabled = true,
+
+        TeamCheck = true,
+        AliveCheck = true,
+        VisibilityCheck = false,
+
+        MaxDistance = 1500,
+
+        FOVEnabled = true,
+        FOVRadius = 180,
+
+        TargetPart = "Head",
+
+        TargetColor = Color3.fromRGB(255, 220, 80),
     },
 
-    DefaultHoldLength = 0.03,
-    ReleaseDelay = 0.03,
-
-    DetectionWindow = {
-        Min = -0.04,
-        Max = 0.75,
-    },
-
-    ManualMode = false,
-    ForceResult = nil,
-
-    ToggleKey = Enum.KeyCode.P,
-    Debug = true,
+    UI = {
+        RightCtrlCursor = true,
+    }
 }
 
--- =========================================================
+--========================================================--
 -- STATE
--- =========================================================
+--========================================================--
 
 local State = {
-    Connection = nil,
-    Generation = 0,
-    Scheduled = {},
-    Processed = {},
-
-    Statistics = {
-        Sick = 0,
-        Good = 0,
-        OK = 0,
-        Bad = 0,
-        Miss = 0,
-    },
+    ESPObjects = {},
+    SelectedPlayer = nil,
+    CursorMode = false,
+    Connections = {},
 }
 
--- =========================================================
--- UTILITY
--- =========================================================
+--========================================================--
+-- HELPERS
+--========================================================--
 
-local function debugPrint(...)
-    if Settings.Debug then
-        print("[FFAutoPlayer]", ...)
-    end
+local function getCharacter(player)
+    return player and player.Character
 end
 
-local function resetStatistics()
-    for key in pairs(State.Statistics) do
-        State.Statistics[key] = 0
-    end
-end
-
-local function getStatistics()
-    local result = {}
-    for key, value in pairs(State.Statistics) do
-        result[key] = value
-    end
-    return result
-end
-
-local function clearProcessed()
-    table.clear(State.Processed)
-end
-
--- =========================================================
--- ACCURACY
--- =========================================================
-
-local Accuracy = {}
-
-function Accuracy.getTotalWeight()
-    local total = 0
-    for _, weight in pairs(Settings.Accuracy) do
-        total += math.max(0, tonumber(weight) or 0)
-    end
-    return total
-end
-
-function Accuracy.roll()
-    if Settings.ManualMode and Settings.ForceResult then
-        return Settings.ForceResult
+local function getHumanoid(character)
+    if not character then
+        return nil
     end
 
-    local total = Accuracy.getTotalWeight()
-    if total <= 0 then return "Sick" end
+    return character:FindFirstChildOfClass("Humanoid")
+end
 
-    local roll = math.random() * total
-    local accumulated = 0
-    local order = {"Sick", "Good", "OK", "Bad", "Miss"}
+local function getRoot(character)
+    if not character then
+        return nil
+    end
 
-    for _, result in ipairs(order) do
-        accumulated += math.max(0, tonumber(Settings.Accuracy[result]) or 0)
-        if roll <= accumulated then
-            return result
+    return character:FindFirstChild("HumanoidRootPart")
+end
+
+local function isAlive(player)
+
+    local character = getCharacter(player)
+    local humanoid = getHumanoid(character)
+
+    if not humanoid then
+        return false
+    end
+
+    return humanoid.Health > 0
+end
+
+local function isSameTeam(player)
+
+    if not Settings.ESP.TeamCheck then
+        return false
+    end
+
+    return player.Team ~= nil
+        and LocalPlayer.Team ~= nil
+        and player.Team == LocalPlayer.Team
+end
+
+local function isSameTargetTeam(player)
+
+    if not Settings.Target.TeamCheck then
+        return false
+    end
+
+    return player.Team ~= nil
+        and LocalPlayer.Team ~= nil
+        and player.Team == LocalPlayer.Team
+end
+
+local function getTeamColor(player)
+
+    if player.Team ~= nil then
+
+        if LocalPlayer.Team ~= nil
+            and player.Team == LocalPlayer.Team then
+
+            return Settings.ESP.TeamColor
         end
     end
-    return "Miss"
+
+    return Settings.ESP.EnemyColor
 end
 
-function Accuracy.getOffset(result)
-    return Settings.Timing[result] or 0
-end
+local function getTargetPart(character)
 
--- =========================================================
--- HIT HANDLER (Simulation)
--- =========================================================
-
-local HitHandler = {}
-
-function HitHandler.press(lane, result, note)
-    if result == "Miss" then
-        debugPrint("MISS | lane=" .. tostring(lane))
-        State.Statistics.Miss += 1
-        return
+    if not character then
+        return nil
     end
-    State.Statistics[result] += 1
-    debugPrint(string.format("%s | lane=%s | offset=%.3fs", result, tostring(lane), Accuracy.getOffset(result)))
+
+    return character:FindFirstChild(
+        Settings.Target.TargetPart
+    )
+        or character:FindFirstChild("Head")
+        or character:FindFirstChild("HumanoidRootPart")
 end
 
-function HitHandler.release(lane, result)
-    debugPrint(string.format("RELEASE | lane=%s | result=%s", tostring(lane), tostring(result)))
-end
+local function isVisible(part, character)
 
--- =========================================================
--- SCHEDULER
--- =========================================================
-
-local Scheduler = {}
-
-function Scheduler.cancelAll()
-    State.Generation += 1
-    State.Scheduled = {}
-    clearProcessed()
-end
-
-function Scheduler.schedule(delayTime, callback)
-    local generation = State.Generation
-    local job = {cancelled = false}
-    table.insert(State.Scheduled, job)
-
-    task.delay(math.max(0, delayTime), function()
-        if job.cancelled or generation \~= State.Generation then return end
-        local ok, err = pcall(callback)
-        if not ok then warn("[FFAutoPlayer]", err) end
-    end)
-    return job
-end
-
--- =========================================================
--- NOTE PROCESSOR + SCANNER
--- =========================================================
-
-local NoteProcessor = {}
-
-function NoteProcessor.isValid(note)
-    return note and not State.Processed[note] and not note.Marked
-end
-
-function NoteProcessor.markAsProcessed(note)
-    State.Processed[note] = true
-end
-
-function NoteProcessor.getLane(note)
-    return note.Direction or note.Lane
-end
-
-function NoteProcessor.getTime(note)
-    return tonumber(note.Time)
-end
-
-function NoteProcessor.getLength(note)
-    return tonumber(note.Length) or Settings.DefaultHoldLength
-end
-
-function NoteProcessor.calculateDifference(noteTime, currentTime, playback)
-    playback = tonumber(playback) or 1
-    if playback <= 0 then playback = 1 end
-    return (noteTime - currentTime) / playback
-end
-
-local function scheduleNote(note, diff, playback)
-    if not NoteProcessor.isValid(note) then return end
-    local lane = NoteProcessor.getLane(note)
-    if not lane then return end
-
-    NoteProcessor.markAsProcessed(note)
-    local currentGeneration = State.Generation
-
-    Scheduler.schedule(math.max(0, diff), function()
-        if currentGeneration \~= State.Generation then return end
-
-        local result = Accuracy.roll()
-        if result == "Miss" then
-            HitHandler.press(lane, result, note)
-            return
-        end
-
-        HitHandler.press(lane, result, note)
-
-        local holdLength = (NoteProcessor.getLength(note) / math.max(playback, 0.001)) + Settings.ReleaseDelay
-        if holdLength > 0 then
-            Scheduler.schedule(holdLength, function()
-                if currentGeneration \~= State.Generation then return end
-                HitHandler.release(lane, result)
-            end)
-        end
-    end)
-end
-
-local NoteScanner = {}
-
-function NoteScanner.scan(noteCache, side, currentTime, playback)
-    if type(noteCache) \~= "table" then return end
-    local minDiff, maxDiff = Settings.DetectionWindow.Min, Settings.DetectionWindow.Max
-
-    for _, note in pairs(noteCache) do
-        if NoteProcessor.isValid(note) and note.Field == side then
-            local noteTime = NoteProcessor.getTime(note)
-            if noteTime then
-                local diff = NoteProcessor.calculateDifference(noteTime, currentTime, playback)
-                if diff > minDiff and diff < maxDiff then
-                    scheduleNote(note, diff, playback)
-                end
-            end
-        end
+    if not part then
+        return false
     end
-end
 
--- =========================================================
--- AUTO PLAYER
--- =========================================================
+    local origin = Camera.CFrame.Position
+    local direction = part.Position - origin
 
-local AutoPlayer = {}
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {
+        LocalPlayer.Character,
+    }
 
-function AutoPlayer.stop()
-    Settings.Enabled = false
-    Scheduler.cancelAll()
-    if State.Connection then
-        State.Connection:Disconnect()
-        State.Connection = nil
+    local result = Workspace:Raycast(
+        origin,
+        direction,
+        params
+    )
+
+    if not result then
+        return true
     end
-    debugPrint("AutoPlayer stopped.")
+
+    return result.Instance:IsDescendantOf(character)
 end
 
-function AutoPlayer.start(getGameState)
-    AutoPlayer.stop()
-    resetStatistics()
-    clearProcessed()
-    Settings.Enabled = true
-    State.Generation += 1
-
-    State.Connection = RunService.RenderStepped:Connect(function()
-        if not Settings.Enabled then return end
-        if type(getGameState) \~= "function" then return end
-
-        local ok, gameState = pcall(getGameState)
-        if not ok or type(gameState) \~= "table" or not gameState.Playing then return end
-
-        NoteScanner.scan(gameState.NoteCache, gameState.Side, gameState.TimePosition, gameState.Playback)
-    end)
-    debugPrint("AutoPlayer started.")
-end
-
-function AutoPlayer.getStats()
-    return getStatistics()
-end
-
-function AutoPlayer.toggle()
-    if Settings.Enabled then
-        AutoPlayer.stop()
-    else
-        AutoPlayer.start(function()
-            return {
-                Playing = false,
-                NoteCache = {},
-                Side = nil,
-                TimePosition = 0,
-                Playback = 1,
-            }
-        end)
-    end
-end
-
--- =========================================================
--- INPUT (PC + Mobile)
--- =========================================================
-
-local function setForce(result)
-    Settings.ManualMode = true
-    Settings.ForceResult = result
-    debugPrint("Manual Force: " .. result)
-end
-
-local function clearForce()
-    Settings.ManualMode = false
-    Settings.ForceResult = nil
-    debugPrint("Manual Force: OFF")
-end
-
--- PC Keybinds
-UserInputService.InputBegan:Connect(function(input, gp)
-    if gp then return end
-    if input.KeyCode == Settings.ToggleKey then
-        AutoPlayer.toggle()
-    elseif input.KeyCode == Enum.KeyCode.Q then setForce("Sick")
-    elseif input.KeyCode == Enum.KeyCode.E then setForce("Good")
-    elseif input.KeyCode == Enum.KeyCode.R then setForce("OK")
-    elseif input.KeyCode == Enum.KeyCode.F then setForce("Bad")
-    elseif input.KeyCode == Enum.KeyCode.G then setForce("Miss")
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == Enum.KeyCode.Q or input.KeyCode == Enum.KeyCode.E
-    or input.KeyCode == Enum.KeyCode.R or input.KeyCode == Enum.KeyCode.F
-    or input.KeyCode == Enum.KeyCode.G then
-        clearForce()
-    end
-end)
-
--- =========================================================
--- GUI
--- =========================================================
+--========================================================--
+-- GUI ROOT
+--========================================================--
 
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FFAutoPlayer"
+ScreenGui.Name = "K4toESP"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = PlayerGui
 
-local Main = Instance.new("Frame")
-Main.Size = IS_MOBILE and UDim2.new(0, 340, 0, 620) or UDim2.new(0, 360, 0, 580)
-Main.Position = UDim2.new(0.5, IS_MOBILE and -170 or -180, 0.5, IS_MOBILE and -310 or -290)
-Main.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
-Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+--========================================================--
+-- FOV GUI
+--========================================================--
 
--- Title + Drag
+local FOVFrame = Instance.new("Frame")
+FOVFrame.Name = "FOV"
+FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVFrame.Position = UDim2.fromOffset(0, 0)
+FOVFrame.Size = UDim2.fromOffset(
+    Settings.Target.FOVRadius * 2,
+    Settings.Target.FOVRadius * 2
+)
+FOVFrame.BackgroundTransparency = 1
+FOVFrame.Visible = Settings.Target.FOVEnabled
+FOVFrame.Parent = ScreenGui
+
+local FOVCorner = Instance.new("UICorner")
+FOVCorner.CornerRadius = UDim.new(1, 0)
+FOVCorner.Parent = FOVFrame
+
+local FOVStroke = Instance.new("UIStroke")
+FOVStroke.Thickness = 1.5
+FOVStroke.Color = Color3.fromRGB(
+    255,
+    255,
+    255
+)
+FOVStroke.Transparency = 0
+FOVStroke.Parent = FOVFrame
+
+--========================================================--
+-- CENTER DOT
+--========================================================--
+
+local CenterDot = Instance.new("Frame")
+CenterDot.Name = "CenterDot"
+CenterDot.AnchorPoint = Vector2.new(0.5, 0.5)
+CenterDot.Size = UDim2.fromOffset(4, 4)
+CenterDot.BackgroundColor3 =
+    Color3.fromRGB(255, 255, 255)
+CenterDot.BorderSizePixel = 0
+CenterDot.Parent = ScreenGui
+
+local CenterCorner = Instance.new("UICorner")
+CenterCorner.CornerRadius = UDim.new(1, 0)
+CenterCorner.Parent = CenterDot
+
+--========================================================--
+-- TARGET LABEL
+--========================================================--
+
+local TargetLabel = Instance.new("TextLabel")
+TargetLabel.Name = "TargetLabel"
+TargetLabel.AnchorPoint = Vector2.new(0.5, 0)
+TargetLabel.Position = UDim2.new(0.5, 0, 0.5, 18)
+TargetLabel.Size = UDim2.fromOffset(300, 28)
+TargetLabel.BackgroundTransparency = 1
+TargetLabel.Text = "TARGET: NONE"
+TargetLabel.TextColor3 =
+    Settings.Target.TargetColor
+TargetLabel.TextSize = 14
+TargetLabel.Font = Enum.Font.GothamBold
+TargetLabel.Visible = Settings.Target.Enabled
+TargetLabel.Parent = ScreenGui
+
+--========================================================--
+-- GUI PANEL
+--========================================================--
+
+local Main = Instance.new("Frame")
+Main.Name = "ControlPanel"
+Main.Size = UDim2.fromOffset(280, 340)
+Main.Position = UDim2.new(
+    0.5,
+    -140,
+    0.5,
+    -170
+)
+Main.BackgroundColor3 =
+    Color3.fromRGB(22, 22, 30)
+Main.BackgroundTransparency = 0.04
+Main.BorderSizePixel = 0
+Main.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = Main
+
+--========================================================--
+-- TITLE
+--========================================================--
+
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 42)
-Title.BackgroundTransparency = 1
-Title.Text = "Funky Friday AutoPlayer"
-Title.TextColor3 = Color3.fromRGB(0, 255, 180)
-Title.TextScaled = true
+Title.Size = UDim2.new(1, -45, 0, 40)
+Title.BackgroundColor3 =
+    Color3.fromRGB(40, 40, 55)
+Title.BackgroundTransparency = 0.1
+Title.Text = "👁 K4to ESP"
+Title.TextColor3 =
+    Color3.fromRGB(255, 255, 255)
+Title.TextSize = 16
 Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Active = true
 Title.Parent = Main
 
-local dragging, dragStart, startPos, dragConn
-local function beginDrag(input)
+local TitlePadding = Instance.new("UIPadding")
+TitlePadding.PaddingLeft = UDim.new(0, 12)
+TitlePadding.Parent = Title
+
+--========================================================--
+-- CLOSE
+--========================================================--
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(32, 30)
+Close.Position = UDim2.new(1, -37, 0, 5)
+Close.BackgroundColor3 =
+    Color3.fromRGB(180, 50, 50)
+Close.Text = "✕"
+Close.TextColor3 =
+    Color3.fromRGB(255, 255, 255)
+Close.TextSize = 14
+Close.Font = Enum.Font.GothamBold
+Close.BorderSizePixel = 0
+Close.Parent = Main
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = Close
+
+--========================================================--
+-- STATUS
+--========================================================--
+
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -20, 0, 24)
+Status.Position = UDim2.fromOffset(10, 50)
+Status.BackgroundTransparency = 1
+Status.Text = "ESP: ON | TARGET: ON"
+Status.TextColor3 =
+    Color3.fromRGB(100, 255, 140)
+Status.TextSize = 12
+Status.Font = Enum.Font.Gotham
+Status.TextXAlignment =
+    Enum.TextXAlignment.Left
+Status.Parent = Main
+
+--========================================================--
+-- BUTTON MAKER
+--========================================================--
+
+local function CreateButton(
+    text,
+    y,
+    callback
+)
+
+    local Button = Instance.new("TextButton")
+
+    Button.Size =
+        UDim2.new(1, -20, 0, 38)
+
+    Button.Position =
+        UDim2.fromOffset(10, y)
+
+    Button.BackgroundColor3 =
+        Color3.fromRGB(40, 40, 52)
+
+    Button.Text = text
+
+    Button.TextColor3 =
+        Color3.fromRGB(255, 255, 255)
+
+    Button.TextSize = 12
+    Button.Font = Enum.Font.GothamBold
+    Button.BorderSizePixel = 0
+
+    Button.Parent = Main
+
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 7)
+    Corner.Parent = Button
+
+    Button.Activated:Connect(callback)
+
+    return Button
+end
+
+--========================================================--
+-- ESP TOGGLE
+--========================================================--
+
+local ESPButton
+
+ESPButton = CreateButton(
+    "ESP: ON",
+    82,
+    function()
+
+        Settings.ESP.Enabled =
+            not Settings.ESP.Enabled
+
+        ESPButton.Text =
+            "ESP: "
+            .. (
+                Settings.ESP.Enabled
+                and "ON"
+                or "OFF"
+            )
+
+        Status.Text =
+            "ESP: "
+            .. (
+                Settings.ESP.Enabled
+                and "ON"
+                or "OFF"
+            )
+            .. " | TARGET: "
+            .. (
+                Settings.Target.Enabled
+                and "ON"
+                or "OFF"
+            )
+    end
+)
+
+--========================================================--
+-- TARGET TOGGLE
+--========================================================--
+
+local TargetButton
+
+TargetButton = CreateButton(
+    "Target Selector: ON",
+    128,
+    function()
+
+        Settings.Target.Enabled =
+            not Settings.Target.Enabled
+
+        TargetButton.Text =
+            "Target Selector: "
+            .. (
+                Settings.Target.Enabled
+                and "ON"
+                or "OFF"
+            )
+
+        TargetLabel.Visible =
+            Settings.Target.Enabled
+
+        Status.Text =
+            "ESP: "
+            .. (
+                Settings.ESP.Enabled
+                and "ON"
+                or "OFF"
+            )
+            .. " | TARGET: "
+            .. (
+                Settings.Target.Enabled
+                and "ON"
+                or "OFF"
+            )
+    end
+)
+
+--========================================================--
+-- FOV TOGGLE
+--========================================================--
+
+local FOVButton
+
+FOVButton = CreateButton(
+    "FOV Circle: ON",
+    174,
+    function()
+
+        Settings.Target.FOVEnabled =
+            not Settings.Target.FOVEnabled
+
+        FOVFrame.Visible =
+            Settings.Target.FOVEnabled
+
+        FOVButton.Text =
+            "FOV Circle: "
+            .. (
+                Settings.Target.FOVEnabled
+                and "ON"
+                or "OFF"
+            )
+    end
+)
+
+--========================================================--
+-- VISIBILITY CHECK
+--========================================================--
+
+local VisibilityButton
+
+VisibilityButton = CreateButton(
+    "Visibility Check: OFF",
+    220,
+    function()
+
+        Settings.Target.VisibilityCheck =
+            not Settings.Target.VisibilityCheck
+
+        Settings.ESP.VisibilityCheck =
+            Settings.Target.VisibilityCheck
+
+        VisibilityButton.Text =
+            "Visibility Check: "
+            .. (
+                Settings.Target.VisibilityCheck
+                and "ON"
+                or "OFF"
+            )
+    end
+)
+
+--========================================================--
+-- TEAM CHECK
+--========================================================--
+
+local TeamButton
+
+TeamButton = CreateButton(
+    "Team Check: ON",
+    266,
+    function()
+
+        Settings.Target.TeamCheck =
+            not Settings.Target.TeamCheck
+
+        Settings.ESP.TeamCheck =
+            Settings.Target.TeamCheck
+
+        TeamButton.Text =
+            "Team Check: "
+            .. (
+                Settings.Target.TeamCheck
+                and "ON"
+                or "OFF"
+            )
+    end
+)
+
+--========================================================--
+-- CREDIT
+--========================================================--
+
+local Credit = Instance.new("TextLabel")
+Credit.Size = UDim2.new(1, -20, 0, 20)
+Credit.Position =
+    UDim2.new(0, 10, 1, -28)
+Credit.BackgroundTransparency = 1
+Credit.Text = "Script by itsK4to"
+Credit.TextColor3 =
+    Color3.fromRGB(130, 130, 150)
+Credit.TextSize = 10
+Credit.Font = Enum.Font.Gotham
+Credit.TextXAlignment =
+    Enum.TextXAlignment.Right
+Credit.Parent = Main
+
+--========================================================--
+-- GUI DRAG
+--========================================================--
+
+local dragging = false
+local dragStart
+local startPos
+local activeInput
+
+local function BeginDrag(input)
+
     dragging = true
+    activeInput = input
+
     dragStart = input.Position
     startPos = Main.Position
-    if dragConn then dragConn:Disconnect() end
-    dragConn = UserInputService.InputChanged:Connect(function(changed)
-        if not dragging then return end
-        if changed.UserInputType == Enum.UserInputType.MouseMovement or changed.UserInputType == Enum.UserInputType.Touch then
-            local delta = changed.Position - dragStart
-            Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
+end
+
+local function EndDrag(input)
+
+    if input == activeInput then
+
+        dragging = false
+        activeInput = nil
+    end
 end
 
 Title.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        beginDrag(input)
+
+    if input.UserInputType
+        == Enum.UserInputType.MouseButton1
+        or input.UserInputType
+        == Enum.UserInputType.Touch then
+
+        if UserInputService.MouseBehavior
+            == Enum.MouseBehavior.Default
+            or input.UserInputType
+                == Enum.UserInputType.Touch then
+
+            BeginDrag(input)
+        end
     end
 end)
 
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-        if dragConn then dragConn:Disconnect() dragConn = nil end
-    end
-end)
+Title.InputEnded:Connect(
+    EndDrag
+)
 
--- =========================================================
--- GUI HELPERS
--- =========================================================
+UserInputService.InputChanged:Connect(
+    function(input)
 
-local function createToggle(name, y, default, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -20, 0, IS_MOBILE and 44 or 36)
-    frame.Position = UDim2.new(0, 10, 0, y)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    frame.Parent = Main
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.55, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = "  " .. name
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextScaled = true
-    label.Font = Enum.Font.Gotham
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(0, IS_MOBILE and 90 or 80, 0, IS_MOBILE and 32 or 26)
-    button.Position = UDim2.new(1, IS_MOBILE and -100 or -90, 0.5, IS_MOBILE and -16 or -13)
-    button.TextScaled = true
-    button.Font = Enum.Font.GothamBold
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
-    button.Parent = frame
-    Instance.new("UICorner", button).CornerRadius = UDim.new(0, 6)
-
-    local state = default
-    local function update()
-        button.Text = state and "ON" or "OFF"
-        button.BackgroundColor3 = state and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(170, 0, 0)
-    end
-    button.MouseButton1Click:Connect(function()
-        state = not state
-        update()
-        callback(state)
-    end)
-    update()
-end
-
-local function createSlider(name, y, min, max, default, callback)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -20, 0, IS_MOBILE and 56 or 50)
-    frame.Position = UDim2.new(0, 10, 0, y)
-    frame.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
-    frame.Parent = Main
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, -12, 0, 22)
-    label.Position = UDim2.new(0, 8, 0, 4)
-    label.BackgroundTransparency = 1
-    label.Text = name .. ": " .. default
-    label.TextColor3 = Color3.fromRGB(220, 220, 220)
-    label.TextScaled = true
-    label.Font = Enum.Font.Gotham
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Parent = frame
-
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(1, -16, 0, IS_MOBILE and 14 or 10)
-    bar.Position = UDim2.new(0, 8, 0, IS_MOBILE and 32 or 30)
-    bar.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    bar.Parent = frame
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 6)
-
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(0, 200, 140)
-    fill.Parent = bar
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(0, 6)
-
-    local draggingSlider = false
-
-    local function update(value)
-        value = math.clamp(value, min, max)
-        fill.Size = UDim2.new((value - min) / (max - min), 0, 1, 0)
-        label.Text = name .. ": " .. string.format(max <= 1 and "%.3f" or "%d", value)
-        callback(value)
-    end
-
-    local function onInput(input)
-        local relative = (input.Position.X - bar.AbsolutePosition.X) / bar.AbsoluteSize.X
-        update(min + relative * (max - min))
-    end
-
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingSlider = true
-            onInput(input)
+        if not dragging then
+            return
         end
-    end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if draggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            onInput(input)
+        if input.UserInputType
+            ~= Enum.UserInputType.MouseMovement
+            and input.UserInputType
+            ~= Enum.UserInputType.Touch then
+
+            return
         end
-    end)
 
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            draggingSlider = false
+        local delta =
+            input.Position - dragStart
+
+        Main.Position =
+            UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
+            )
+    end
+)
+
+UserInputService.InputEnded:Connect(
+    function(input)
+
+        if input == activeInput then
+
+            dragging = false
+            activeInput = nil
         end
-    end)
+    end
+)
 
-    update(default)
-end
+--========================================================--
+-- CURSOR MODE
+--========================================================--
 
--- =========================================================
--- TOGGLES + SLIDERS
--- =========================================================
+local oldMouseBehavior =
+    UserInputService.MouseBehavior
 
-createToggle("Auto Player", 52, false, function(enabled)
+local oldMouseIcon =
+    UserInputService.MouseIconEnabled
+
+local function SetCursorMode(enabled)
+
+    State.CursorMode = enabled
+
     if enabled then
-        AutoPlayer.start(function()
-            return {Playing = false, NoteCache = {}, Side = nil, TimePosition = 0, Playback = 1}
-        end)
+
+        oldMouseBehavior =
+            UserInputService.MouseBehavior
+
+        oldMouseIcon =
+            UserInputService.MouseIconEnabled
+
+        UserInputService.MouseBehavior =
+            Enum.MouseBehavior.Default
+
+        UserInputService.MouseIconEnabled =
+            true
+
     else
-        AutoPlayer.stop()
+
+        UserInputService.MouseBehavior =
+            oldMouseBehavior
+
+        UserInputService.MouseIconEnabled =
+            oldMouseIcon
     end
-end)
-
-createToggle("Debug Logging", 102, true, function(v) Settings.Debug = v end)
-
-local sliderY = 155
-createSlider("Sick %", sliderY, 0, 100, 100, function(v) Settings.Accuracy.Sick = v end)
-createSlider("Good %", sliderY + 60, 0, 100, 0, function(v) Settings.Accuracy.Good = v end)
-createSlider("OK %", sliderY + 120, 0, 100, 0, function(v) Settings.Accuracy.OK = v end)
-createSlider("Bad %", sliderY + 180, 0, 100, 0, function(v) Settings.Accuracy.Bad = v end)
-createSlider("Miss %", sliderY + 240, 0, 100, 0, function(v) Settings.Accuracy.Miss = v end)
-createSlider("Release Delay", sliderY + 300, 0, 0.15, 0.03, function(v) Settings.ReleaseDelay = v end)
-
--- =========================================================
--- MOBILE FORCE BUTTONS
--- =========================================================
-
-if IS_MOBILE then
-    local forceFrame = Instance.new("Frame")
-    forceFrame.Size = UDim2.new(1, -20, 0, 70)
-    forceFrame.Position = UDim2.new(0, 10, 0, 520)
-    forceFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    forceFrame.Parent = Main
-    Instance.new("UICorner", forceFrame).CornerRadius = UDim.new(0, 8)
-
-    local function makeForceBtn(text, result, x)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0, 58, 0, 50)
-        btn.Position = UDim2.new(0, x, 0.5, -25)
-        btn.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        btn.Text = text
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        btn.TextScaled = true
-        btn.Font = Enum.Font.GothamBold
-        btn.Parent = forceFrame
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
-
-        btn.MouseButton1Down:Connect(function() setForce(result) end)
-        btn.MouseButton1Up:Connect(clearForce)
-        btn.MouseLeave:Connect(clearForce)
-    end
-
-    makeForceBtn("SICK", "Sick", 8)
-    makeForceBtn("GOOD", "Good", 72)
-    makeForceBtn("OK", "OK", 136)
-    makeForceBtn("BAD", "Bad", 200)
-    makeForceBtn("MISS", "Miss", 264)
 end
 
--- =========================================================
--- STATS + CLOSE
--- =========================================================
+UserInputService.InputBegan:Connect(
+    function(input, processed)
 
-local StatsLabel = Instance.new("TextLabel")
-StatsLabel.Size = UDim2.new(1, -20, 0, 26)
-StatsLabel.Position = UDim2.new(0, 10, 0, IS_MOBILE and 600 or 470)
-StatsLabel.BackgroundTransparency = 1
-StatsLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-StatsLabel.TextScaled = true
-StatsLabel.Font = Enum.Font.Gotham
-StatsLabel.Parent = Main
+        if processed then
+            return
+        end
 
-local InfoLabel = Instance.new("TextLabel")
-InfoLabel.Size = UDim2.new(1, -20, 0, 20)
-InfoLabel.Position = UDim2.new(0, 10, 0, IS_MOBILE and 625 or 498)
-InfoLabel.BackgroundTransparency = 1
-InfoLabel.Text = IS_MOBILE and "Mobile Mode • Hold buttons to Force" or "PC: P = Toggle | Q/E/R/F/G = Force"
-InfoLabel.TextColor3 = Color3.fromRGB(130, 130, 130)
-InfoLabel.TextScaled = true
-InfoLabel.Font = Enum.Font.Gotham
-InfoLabel.Parent = Main
+        if not Settings.UI.RightCtrlCursor then
+            return
+        end
 
-task.spawn(function()
-    while ScreenGui.Parent do
-        local s = AutoPlayer.getStats()
-        StatsLabel.Text = string.format("Sick %d | Good %d | OK %d | Bad %d | Miss %d", s.Sick, s.Good, s.OK, s.Bad, s.Miss)
-        task.wait(0.3)
+        if input.KeyCode
+            == Enum.KeyCode.RightControl then
+
+            SetCursorMode(
+                not State.CursorMode
+            )
+        end
     end
-end)
+)
 
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 120, 0, 34)
-CloseButton.Position = UDim2.new(0.5, -60, 1, IS_MOBILE and -45 or -42)
-CloseButton.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-CloseButton.Text = "CLOSE"
-CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-CloseButton.TextScaled = true
-CloseButton.Font = Enum.Font.GothamBold
-CloseButton.Parent = Main
-Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0, 8)
+--========================================================--
+-- ESP OBJECT
+--========================================================--
 
-CloseButton.MouseButton1Click:Connect(function()
-    AutoPlayer.stop()
-    ScreenGui:Destroy()
-end)
+local function CreateESP(player)
 
-print("Funky Friday AutoPlayer loaded • Mobile Support:", IS_MOBILE)
+    if State.ESPObjects[player] then
+        return State.ESPObjects[player]
+    end
+
+    local Holder = Instance.new("Frame")
+    Holder.Name = "ESP_" .. player.Name
+    Holder.BackgroundTransparency = 1
+    Holder.BorderSizePixel = 0
+    Holder.Visible = false
+    Holder.ZIndex = 5
+    Holder.Parent = ScreenGui
+
+    -- Box
+    local Box = Instance.new("Frame")
+    Box.Name = "Box"
+    Box.BackgroundTransparency = 1
+    Box.BorderSizePixel = 0
+    Box.Parent = Holder
+
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Thickness = 1.5
+    Stroke.Color =
+        Settings.ESP.BoxColor
+    Stroke.Parent = Box
+
+    -- Name
+    local NameLabel = Instance.new("TextLabel")
+    NameLabel.Name = "Name"
+    NameLabel.AnchorPoint =
+        Vector2.new(0.5, 1)
+    NameLabel.Position =
+        UDim2.new(0.5, 0, 0, -3)
+    NameLabel.Size =
+        UDim2.new(0, 180, 0, 18)
+    NameLabel.BackgroundTransparency = 1
+    NameLabel.TextColor3 =
+        Color3.fromRGB(255, 255, 255)
+    NameLabel.TextSize =
+        Settings.ESP.TextSize
+    NameLabel.Font =
+        Enum.Font.GothamBold
+    NameLabel.TextStrokeTransparency = 0
+    NameLabel.Parent = Box
+
+    -- Distance
+    local DistanceLabel =
+        Instance.new("TextLabel")
+
+    DistanceLabel.Name = "Distance"
+    DistanceLabel.AnchorPoint =
+        Vector2.new(0.5, 0)
+    DistanceLabel.Position =
+        UDim2.new(0.5, 0, 1, 3)
+    DistanceLabel.Size =
+        UDim2.new(0, 180, 0, 18)
+    DistanceLabel.BackgroundTransparency = 1
+    DistanceLabel.TextColor3 =
+        Color3.fromRGB(220, 220, 220)
+    DistanceLabel.TextSize = 11
+    DistanceLabel.Font =
+        Enum.Font.Gotham
+    DistanceLabel.TextStrokeTransparency = 0
+    DistanceLabel.Parent = Box
+
+    -- Health background
+    local HealthBack = Instance.new("Frame")
+    HealthBack.Name = "HealthBack"
+    HealthBack.AnchorPoint =
+        Vector2.new(1, 1)
+    HealthBack.Position =
+        UDim2.new(0, -4, 1, 0)
+    HealthBack.Size =
+        UDim2.new(0, 4, 1, 0)
+    HealthBack.BackgroundColor3 =
+        Color3.fromRGB(35, 35, 35)
+    HealthBack.BorderSizePixel = 0
+    HealthBack.Parent = Box
+
+    local HealthFill = Instance.new("Frame")
+    HealthFill.Name = "HealthFill"
+    HealthFill.AnchorPoint =
+        Vector2.new(0, 1)
+    HealthFill.Position =
+        UDim2.new(0, 0, 1, 0)
+    HealthFill.Size =
+        UDim2.new(1, 0, 1, 0)
+    HealthFill.BackgroundColor3 =
+        Color3.fromRGB(80, 255, 80)
+    HealthFill.BorderSizePixel = 0
+    HealthFill.Parent = HealthBack
+
+    State.ESPObjects[player] = {
+        Holder = Holder,
+        Box = Box,
+        Stroke = Stroke,
+        NameLabel = NameLabel,
+        DistanceLabel = DistanceLabel,
+        HealthBack = HealthBack,
+        HealthFill = HealthFill,
+    }
+
+    return State.ESPObjects[player]
+end
+
+--========================================================--
+-- REMOVE ESP
+--========================================================--
+
+local function RemoveESP(player)
+
+    local data =
+        State.ESPObjects[player]
+
+    if not data then
+        return
+    end
+
+    if data.Holder then
+        data.Holder:Destroy()
+    end
+
+    State.ESPObjects[player] = nil
+end
+
+--========================================================--
+-- UPDATE ESP
+--========================================================--
+
+local function UpdateESP(player)
+
+    local data =
+        CreateESP(player)
+
+    if not Settings.ESP.Enabled then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    if player == LocalPlayer then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    local character =
+        getCharacter(player)
+
+    local humanoid =
+        getHumanoid(character)
+
+    local root =
+        getRoot(character)
+
+    if not character
+        or not humanoid
+        or not root then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    if Settings.ESP.AliveCheck
+        and humanoid.Health <= 0 then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    if Settings.ESP.TeamCheck
+        and isSameTeam(player) then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    local distance =
+        (
+            Camera.CFrame.Position
+            - root.Position
+        ).Magnitude
+
+    if distance >
+        Settings.ESP.MaxDistance then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    local head =
+        character:FindFirstChild("Head")
+
+    if not head then
+        data.Holder.Visible = false
+        return
+    end
+
+    if Settings.ESP.VisibilityCheck
+        and not isVisible(head, character) then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    local rootPos, rootVisible =
+        Camera:WorldToViewportPoint(
+            root.Position
+        )
+
+    local headPos, headVisible =
+        Camera:WorldToViewportPoint(
+            head.Position + Vector3.new(
+                0,
+                0.5,
+                0
+            )
+        )
+
+    if not rootVisible
+        or not headVisible
+        or rootPos.Z <= 0 then
+
+        data.Holder.Visible = false
+        return
+    end
+
+    local height =
+        math.abs(
+            rootPos.Y
+            - headPos.Y
+        ) * 2
+
+    if height < 20 then
+        height = 20
+    end
+
+    local width =
+        height * 0.55
+
+    local centerX =
+        headPos.X
+
+    local centerY =
+        (
+            headPos.Y
+            + rootPos.Y
+        ) / 2
+
+    data.Holder.Position =
+        UDim2.fromOffset(
+            centerX,
+            centerY
+        )
+
+    data.Holder.Size =
+        UDim2.fromOffset(
+            width,
+            height
+        )
+
+    data.Box.Size =
+        UDim2.fromScale(1, 1)
+
+    local color =
+        getTeamColor(player)
+
+    data.Stroke.Color =
+        color
+
+    data.NameLabel.Visible =
+        Settings.ESP.Name
+
+    data.DistanceLabel.Visible =
+        Settings.ESP.Distance
+
+    data.HealthBack.Visible =
+        Settings.ESP.Health
+
+    data.NameLabel.Text =
+        player.DisplayName
+        .. " ["
+        .. player.Name
+        .. "]"
+
+    data.DistanceLabel.Text =
+        string.format(
+            "%.0f studs",
+            distance
+        )
+
+    local healthPercent =
+        math.clamp(
+            humanoid.Health
+            / math.max(
+                humanoid.MaxHealth,
+                1
+            ),
+            0,
+            1
+        )
+
+    data.HealthFill.Size =
+        UDim2.new(
+            1,
+            0,
+            healthPercent,
+            0
+        )
+
+    if healthPercent <= 0.25 then
+
+        data.HealthFill.BackgroundColor3 =
+            Color3.fromRGB(
+                255,
+                60,
+                60
+            )
+
+    elseif healthPercent <= 0.5 then
+
+        data.HealthFill.BackgroundColor3 =
+            Color3.fromRGB(
+                255,
+                180,
+                60
+            )
+
+    else
+
+        data.HealthFill.BackgroundColor3 =
+            Color3.fromRGB(
+                80,
+                255,
+                80
+            )
+    end
+
+    data.Holder.Visible =
+        Settings.ESP.Box
+        or Settings.ESP.Name
+        or Settings.ESP.Distance
+        or Settings.ESP.Health
+end
+
+--========================================================--
+-- TARGET SELECTION
+--========================================================--
+
+local function GetClosestTarget()
+
+    if not Settings.Target.Enabled then
+        return nil
+    end
+
+    local mousePos =
+        UserInputService:GetMouseLocation()
+
+    -- Center of screen for controller/mobile
+    -- / when cursor is not actively moved.
+    local screenCenter =
+        Vector2.new(
+            Camera.ViewportSize.X / 2,
+            Camera.ViewportSize.Y / 2
+        )
+
+    local center =
+        State.CursorMode
+        and mousePos
+        or screenCenter
+
+    local bestPlayer = nil
+    local bestDistance =
+        Settings.Target.FOVEnabled
+        and Settings.Target.FOVRadius
+        or math.huge
+
+    local best3D =
+        Settings.Target.MaxDistance
+
+    for _, player in ipairs(
+        Players:GetPlayers()
+    ) do
+
+        if player == LocalPlayer then
+            continue
+        end
+
+        if Settings.Target.TeamCheck
+            and isSameTargetTeam(player) then
+            continue
+        end
+
+        local character =
+            getCharacter(player)
+
+        local humanoid =
+            getHumanoid(character)
+
+        if not character
+            or not humanoid then
+            continue
+        end
+
+        if Settings.Target.AliveCheck
+            and humanoid.Health <= 0 then
+            continue
+        end
+
+        local root =
+            getRoot(character)
+
+        local part =
+            getTargetPart(character)
+
+        if not root or not part then
+            continue
+        end
+
+        local distance3D =
+            (
+                Camera.CFrame.Position
+                - root.Position
+            ).Magnitude
+
+        if distance3D >
+            best3D then
+            continue
+        end
+
+        if Settings.Target.VisibilityCheck
+            and not isVisible(
+                part,
+                character
+            ) then
+            continue
+        end
+
+        local point, visible =
+            Camera:WorldToViewportPoint(
+                part.Position
+            )
+
+        if not visible
+            or point.Z <= 0 then
+            continue
+        end
+
+        local screenPoint =
+            Vector2.new(
+                point.X,
+                point.Y
+            )
+
+        local screenDistance =
+            (
+                center
+                - screenPoint
+            ).Magnitude
+
+        if screenDistance < bestDistance then
+
+            bestDistance =
+                screenDistance
+
+            best3D =
+                distance3D
+
+            bestPlayer =
+                player
+        end
+    end
+
+    return bestPlayer
+end
+
+--========================================================--
+-- TARGET HIGHLIGHT
+--========================================================--
+
+local TargetHighlight = Instance.new("Highlight")
+
+TargetHighlight.Name =
+    "K4toTargetHighlight"
+
+TargetHighlight.DepthMode =
+    Enum.HighlightDepthMode.AlwaysOnTop
+
+TargetHighlight.FillColor =
+    Settings.Target.TargetColor
+
+TargetHighlight.OutlineColor =
+    Color3.fromRGB(255, 255, 255)
+
+TargetHighlight.FillTransparency = 0.75
+TargetHighlight.OutlineTransparency = 0
+
+TargetHighlight.Enabled = false
+TargetHighlight.Parent = ScreenGui
+
+--========================================================--
+-- RENDER LOOP
+--========================================================--
+
+local RenderConnection =
+    RunService.RenderStepped:Connect(
+        function()
+
+            Camera =
+                Workspace.CurrentCamera
+
+            -- Center dot
+            CenterDot.Position =
+                UDim2.fromOffset(
+                    Camera.ViewportSize.X / 2,
+                    Camera.ViewportSize.Y / 2
+                )
+
+            -- FOV
+            FOVFrame.Position =
+                UDim2.fromOffset(
+                    Camera.ViewportSize.X / 2,
+                    Camera.ViewportSize.Y / 2
+                )
+
+            FOVFrame.Size =
+                UDim2.fromOffset(
+                    Settings.Target.FOVRadius * 2,
+                    Settings.Target.FOVRadius * 2
+                )
+
+            FOVFrame.Visible =
+                Settings.Target.Enabled
+                and Settings.Target.FOVEnabled
+
+            -- ESP
+            for _, player in ipairs(
+                Players:GetPlayers()
+            ) do
+
+                if player ~= LocalPlayer then
+                    UpdateESP(player)
+                end
+            end
+
+            -- Target
+            local target =
+                GetClosestTarget()
+
+            State.SelectedPlayer =
+                target
+
+            if target then
+
+                TargetLabel.Text =
+                    "TARGET: "
+                    .. target.DisplayName
+
+                TargetLabel.TextColor3 =
+                    Settings.Target.TargetColor
+
+                local character =
+                    getCharacter(target)
+
+                if character then
+
+                    TargetHighlight.Adornee =
+                        character
+
+                    TargetHighlight.Enabled =
+                        Settings.Target.Enabled
+                end
+
+            else
+
+                TargetLabel.Text =
+                    "TARGET: NONE"
+
+                TargetHighlight.Enabled =
+                    false
+
+                TargetHighlight.Adornee =
+                    nil
+            end
+        end
+    )
+
+table.insert(
+    State.Connections,
+    RenderConnection
+)
+
+--========================================================--
+-- PLAYER EVENTS
+--========================================================--
+
+local PlayerAddedConnection =
+    Players.PlayerAdded:Connect(
+        function(player)
+
+            if player ~= LocalPlayer then
+                CreateESP(player)
+            end
+        end
+    )
+
+local PlayerRemovingConnection =
+    Players.PlayerRemoving:Connect(
+        function(player)
+
+            RemoveESP(player)
+
+            if State.SelectedPlayer
+                == player then
+
+                State.SelectedPlayer =
+                    nil
+            end
+        end
+    )
+
+table.insert(
+    State.Connections,
+    PlayerAddedConnection
+)
+
+table.insert(
+    State.Connections,
+    PlayerRemovingConnection
+)
+
+-- Create existing ESP
+for _, player in ipairs(
+    Players:GetPlayers()
+) do
+
+    if player ~= LocalPlayer then
+        CreateESP(player)
+    end
+end
+
+--========================================================--
+-- CLOSE
+--========================================================--
+
+Close.Activated:Connect(
+    function()
+
+        for _, connection in ipairs(
+            State.Connections
+        ) do
+
+            pcall(
+                function()
+                    connection:Disconnect()
+                end
+            )
+        end
+
+        for player, _ in pairs(
+            State.ESPObjects
+        ) do
+
+            RemoveESP(player)
+        end
+
+        TargetHighlight:Destroy()
+
+        if State.CursorMode then
+
+            UserInputService.MouseBehavior =
+                oldMouseBehavior
+
+            UserInputService.MouseIconEnabled =
+                oldMouseIcon
+        end
+
+        ScreenGui:Destroy()
+    end
+)
+
+--========================================================--
+-- LOADED
+--========================================================--
+
+print(
+    "======================================"
+)
+
+print(
+    "👁 K4to ESP + Target Selector"
+)
+
+print(
+    "✅ Script by itsK4to"
+)
+
+print(
+    "✅ ESP Box / Name / HP / Distance"
+)
+
+print(
+    "✅ FOV + Closest Target"
+)
+
+print(
+    "✅ Team + Visibility Check"
+)
+
+print(
+    "✅ PC + Mobile"
+)
+
+print(
+    "✅ RightCtrl = Cursor Mode"
+)
+
+print(
+    "======================================"
+)
