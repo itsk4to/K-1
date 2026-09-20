@@ -1,5 +1,5 @@
-export default {
-  async fetch(request) {
-    return new Response("K-1 is online");
-  }
-};
+{
+  "name": "k-1",
+  "main": "index.js",
+  "compatibility_date": "2026-09-20"
+}
