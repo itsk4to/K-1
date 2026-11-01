@@ -1,6 +1,6 @@
 --[[
     ====================================================
-        KATO HUB v3.2 - MOBILE OPTIMIZED (BLACK/WHITE/PURPLE)
+        KATO MTC v3.3 - MOBILE OPTIMIZED (BLACK/WHITE/PURPLE)
         Features: Mobile Layout, Purple Accent, Obstacle Check
     ====================================================
 ]]
@@ -16,7 +16,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --// CLEANUP PREVIOUS INSTANCES
-local GUI_NAME = "KatoHub_Mobile"
+local GUI_NAME = "Kato MTC"
 local targetParent = pcall(function() return CoreGui.Name end) and CoreGui or PlayerGui
 if targetParent:FindFirstChild(GUI_NAME) then
     targetParent[GUI_NAME]:Destroy()
@@ -779,4 +779,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("[KATO HUB] Mobile Optimized Edition v3.2 loaded successfully.")
+print("[KATO MTC] Mobile Optimized Edition v3.2 loaded successfully.")
