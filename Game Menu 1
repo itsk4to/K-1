@@ -31,6 +31,21 @@ local TSB_PLACE_ID = 10449761463
 local MAIN_GUI_NAME = "KATO_HUB_MAIN"
 local EVENT_NAME = "KATOHubGameSelected"
 
+-- Connect immediately, before building the large UI. This prevents a fast
+-- click on the Main Menu from being lost while this LocalScript is starting.
+local pendingOpen = false
+local openTSB
+local selectedEvent = playerGui:WaitForChild(EVENT_NAME)
+selectedEvent.Event:Connect(function(gameId, gameName)
+    if tostring(gameId) == "TSB" or tostring(gameId) == tostring(TSB_PLACE_ID) then
+        if openTSB then
+            openTSB()
+        else
+            pendingOpen = true
+        end
+    end
+end)
+
 local C = {
     Background = Color3.fromRGB(13, 12, 19),
     Surface = Color3.fromRGB(22, 20, 31),
@@ -1053,7 +1068,7 @@ end
 
 close.Activated:Connect(closeToMain)
 
-local function openTSB()
+openTSB = function()
     local mainGui = playerGui:FindFirstChild(MAIN_GUI_NAME)
     if mainGui and mainGui:IsA("ScreenGui") then
         mainGui.Enabled = false
@@ -1085,15 +1100,11 @@ local function openTSB()
     end)
 end
 
-local event = playerGui:WaitForChild(EVENT_NAME, 30)
-if event and event:IsA("BindableEvent") then
-    event.Event:Connect(function(gameId, gameName)
-        if tostring(gameId) == "TSB" or tostring(gameId) == tostring(TSB_PLACE_ID) then
-            openTSB()
-        end
-    end)
-else
-    warn("[KATO HUB TSB] KATOHubGameSelected BindableEvent was not found. Put Main Menu and TSB Menu LocalScripts in StarterPlayerScripts.")
+-- If the TSB card was clicked while this interface was still being built,
+-- open it now that all UI callbacks and layout functions are ready.
+if pendingOpen then
+    pendingOpen = false
+    task.defer(openTSB)
 end
 
 -- Configurable hotkey for hiding/showing this menu after it has been opened once.
