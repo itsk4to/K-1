@@ -1,1 +1,880 @@
+--[[
+KATO HUB - MAIN MENU GUI
+Type: LocalScript for Roblox Studio
+Install: StarterPlayer > StarterPlayerScripts > LocalScript
 
+This is a standalone interface for a Roblox experience you own/develop.
+It only builds UI and emits a BindableEvent when a game card is selected.
+It does not fetch/execute remote code or automate gameplay.
+
+Separate menu module scripts can listen for:
+Players.LocalPlayer.PlayerGui.KATOHubGameSelected.Event
+Arguments: gameId, gameName
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local COLORS = {
+    Background = Color3.fromRGB(13, 12, 19),
+    Surface = Color3.fromRGB(22, 20, 31),
+    Surface2 = Color3.fromRGB(30, 27, 42),
+    Surface3 = Color3.fromRGB(39, 35, 54),
+    Purple = Color3.fromRGB(137, 92, 246),
+    PurpleLight = Color3.fromRGB(177, 139, 255),
+    Text = Color3.fromRGB(245, 242, 252),
+    Muted = Color3.fromRGB(160, 153, 176),
+    Border = Color3.fromRGB(66, 58, 86),
+    Green = Color3.fromRGB(91, 210, 153),
+}
+
+-- Add or edit game cards here. Add your own Roblox image asset in Image if needed.
+local GAMES = {
+    {
+        Id = "TSB",
+        Name = "The Strongest Battlegrounds",
+        ShortName = "TSB",
+        Category = "GAME MENU 1",
+        Description = "Open the separate TSB menu interface.",
+        Image = "",
+        Enabled = true,
+    },
+    {
+        Id = "MORE",
+        Name = "More Games",
+        ShortName = "+",
+        Category = "COMING SOON",
+        Description = "Additional game menus can be added here later.",
+        Image = "",
+        Enabled = false,
+    },
+}
+
+local previousGui = playerGui:FindFirstChild("KATO_HUB_MAIN")
+if previousGui then
+    previousGui:Destroy()
+end
+
+local selectedEvent = playerGui:FindFirstChild("KATOHubGameSelected")
+if not selectedEvent then
+    selectedEvent = Instance.new("BindableEvent")
+    selectedEvent.Name = "KATOHubGameSelected"
+    selectedEvent.Parent = playerGui
+end
+
+local function create(className, properties, parent)
+    local object = Instance.new(className)
+    for property, value in pairs(properties or {}) do
+        object[property] = value
+    end
+    object.Parent = parent
+    return object
+end
+
+local function corner(parent, radius)
+    return create("UICorner", { CornerRadius = UDim.new(0, radius or 12) }, parent)
+end
+
+local function stroke(parent, color, transparency)
+    return create("UIStroke", {
+        Color = color or COLORS.Border,
+        Transparency = transparency or 0,
+        Thickness = 1,
+    }, parent)
+end
+
+local screen = create("ScreenGui", {
+    Name = "KATO_HUB_MAIN",
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    DisplayOrder = 50,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, playerGui)
+
+local overlay = create("Frame", {
+    Name = "Overlay",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 0.38,
+    BorderSizePixel = 0,
+}, screen)
+
+local window = create("Frame", {
+    Name = "MainWindow",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromOffset(980, 650),
+    BackgroundColor3 = COLORS.Background,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, overlay)
+corner(window, 18)
+stroke(window, COLORS.Border, 0.15)
+create("UISizeConstraint", {
+    MinSize = Vector2.new(300, 420),
+    MaxSize = Vector2.new(1120, 780),
+}, window)
+
+-- Top bar
+local topbar = create("Frame", {
+    Name = "Topbar",
+    Size = UDim2.new(1, 0, 0, 62),
+    BackgroundColor3 = COLORS.Surface,
+    BorderSizePixel = 0,
+}, window)
+create("Frame", {
+    Position = UDim2.new(0, 0, 1, -1),
+    Size = UDim2.new(1, 0, 0, 1),
+    BackgroundColor3 = COLORS.Border,
+    BackgroundTransparency = 0.45,
+    BorderSizePixel = 0,
+}, topbar)
+
+local logo = create("Frame", {
+    Position = UDim2.fromOffset(18, 13),
+    Size = UDim2.fromOffset(36, 36),
+    BackgroundColor3 = COLORS.Purple,
+    BorderSizePixel = 0,
+}, topbar)
+corner(logo, 11)
+create("UIGradient", {
+    Color = ColorSequence.new(COLORS.PurpleLight, COLORS.Purple),
+    Rotation = 45,
+}, logo)
+create("TextLabel", {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Text = "K",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 23,
+}, logo)
+
+local brandName = create("TextLabel", {
+    Position = UDim2.fromOffset(64, 12),
+    Size = UDim2.fromOffset(190, 22),
+    BackgroundTransparency = 1,
+    Text = "KATO HUB",
+    TextColor3 = COLORS.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 17,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, topbar)
+local brandSub = create("TextLabel", {
+    Position = UDim2.fromOffset(65, 34),
+    Size = UDim2.fromOffset(200, 15),
+    BackgroundTransparency = 1,
+    Text = "UNIVERSAL GAME HUB",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.GothamMedium,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, topbar)
+local version = create("TextLabel", {
+    AnchorPoint = Vector2.new(1, 0.5),
+    Position = UDim2.new(1, -112, 0.5, 0),
+    Size = UDim2.fromOffset(72, 25),
+    BackgroundColor3 = COLORS.Surface3,
+    Text = "VERSION 1.0",
+    TextColor3 = COLORS.PurpleLight,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 9,
+    BorderSizePixel = 0,
+}, topbar)
+corner(version, 8)
+
+local function topButton(name, text, xOffset, textColor)
+    local button = create("TextButton", {
+        Name = name,
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, xOffset, 0.5, 0),
+        Size = UDim2.fromOffset(30, 30),
+        BackgroundColor3 = COLORS.Surface3,
+        Text = text,
+        TextColor3 = textColor or COLORS.Text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 16,
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+    }, topbar)
+    corner(button, 9)
+    button.MouseEnter:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.12), {
+            BackgroundColor3 = COLORS.Border,
+        }):Play()
+    end)
+    button.MouseLeave:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.12), {
+            BackgroundColor3 = COLORS.Surface3,
+        }):Play()
+    end)
+    return button
+end
+
+local minimizeButton = topButton("Minimize", "−", -54)
+local closeButton = topButton("Close", "×", -16, Color3.fromRGB(255, 132, 145))
+
+-- Main body and sidebar
+local body = create("Frame", {
+    Name = "Body",
+    Position = UDim2.fromOffset(0, 62),
+    Size = UDim2.new(1, 0, 1, -62),
+    BackgroundTransparency = 1,
+}, window)
+local sidebar = create("Frame", {
+    Name = "Sidebar",
+    Size = UDim2.new(0, 190, 1, 0),
+    BackgroundColor3 = COLORS.Surface,
+    BorderSizePixel = 0,
+}, body)
+local sidebarTitle = create("TextLabel", {
+    Position = UDim2.fromOffset(18, 18),
+    Size = UDim2.new(1, -30, 0, 18),
+    BackgroundTransparency = 1,
+    Text = "WORKSPACE",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.GothamBold,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, sidebar)
+local navHolder = create("Frame", {
+    Name = "Navigation",
+    Position = UDim2.fromOffset(10, 48),
+    Size = UDim2.new(1, -20, 0, 250),
+    BackgroundTransparency = 1,
+}, sidebar)
+local navLayout = create("UIListLayout", {
+    Padding = UDim.new(0, 7),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, navHolder)
+local sidebarStatus = create("TextLabel", {
+    Name = "Status",
+    AnchorPoint = Vector2.new(0, 1),
+    Position = UDim2.new(0, 18, 1, -17),
+    Size = UDim2.new(1, -30, 0, 18),
+    BackgroundTransparency = 1,
+    Text = "●  INTERFACE READY",
+    TextColor3 = COLORS.Green,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 9,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, sidebar)
+local pageHost = create("Frame", {
+    Name = "PageHost",
+    Position = UDim2.new(0, 190, 0, 0),
+    Size = UDim2.new(1, -190, 1, 0),
+    BackgroundTransparency = 1,
+    ClipsDescendants = true,
+}, body)
+
+local pages = {}
+local navButtons = {}
+local isMobile = false
+local isMinimized = false
+
+local function makePage(pageName)
+    local scroll = create("ScrollingFrame", {
+        Name = pageName .. "Page",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = COLORS.Purple,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Visible = false,
+    }, pageHost)
+    create("UIPadding", {
+        PaddingLeft = UDim.new(0, 22),
+        PaddingRight = UDim.new(0, 22),
+        PaddingTop = UDim.new(0, 22),
+        PaddingBottom = UDim.new(0, 26),
+    }, scroll)
+    create("UIListLayout", {
+        Padding = UDim.new(0, 14),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, scroll)
+    pages[pageName] = scroll
+    return scroll
+end
+
+local function pageTitle(parent, title, subtitle)
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = COLORS.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 24,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, parent)
+    create("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 22),
+        BackgroundTransparency = 1,
+        Text = subtitle,
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, parent)
+end
+
+local function sectionTitle(parent, title, note)
+    local row = create("Frame", {
+        Size = UDim2.new(1, 0, 0, 24),
+        BackgroundTransparency = 1,
+    }, parent)
+    create("TextLabel", {
+        Size = UDim2.new(0.7, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = COLORS.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, row)
+    if note then
+        create("TextLabel", {
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, 0, 0, 0),
+            Size = UDim2.new(0.3, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = note,
+            TextColor3 = COLORS.Muted,
+            Font = Enum.Font.Gotham,
+            TextSize = 10,
+            TextXAlignment = Enum.TextXAlignment.Right,
+        }, row)
+    end
+end
+
+local function makeHero(parent)
+    local hero = create("Frame", {
+        Name = "WelcomeBanner",
+        Size = UDim2.new(1, 0, 0, 144),
+        BackgroundColor3 = COLORS.Surface2,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, parent)
+    corner(hero, 16)
+    stroke(hero, COLORS.Border, 0.25)
+    create("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(59, 39, 104)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(29, 25, 43)),
+        }),
+        Rotation = 0,
+    }, hero)
+    local glow = create("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        Position = UDim2.new(1, 28, 0.5, 0),
+        Size = UDim2.fromOffset(190, 190),
+        BackgroundColor3 = COLORS.Purple,
+        BackgroundTransparency = 0.78,
+        BorderSizePixel = 0,
+    }, hero)
+    corner(glow, 100)
+    create("TextLabel", {
+        Position = UDim2.fromOffset(20, 15),
+        Size = UDim2.new(1, -40, 0, 22),
+        BackgroundTransparency = 1,
+        Text = "WELCOME TO KATO HUB",
+        TextColor3 = COLORS.PurpleLight,
+        Font = Enum.Font.GothamBold,
+        TextSize = 10,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, hero)
+    create("TextLabel", {
+        Position = UDim2.fromOffset(20, 39),
+        Size = UDim2.new(1, -40, 0, 34),
+        BackgroundTransparency = 1,
+        Text = "Your games. Your space.",
+        TextColor3 = COLORS.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 22,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, hero)
+    create("TextLabel", {
+        Position = UDim2.fromOffset(20, 76),
+        Size = UDim2.new(1, -40, 0, 22),
+        BackgroundTransparency = 1,
+        Text = "Choose a game menu to open its separate interface.",
+        TextColor3 = Color3.fromRGB(208, 198, 226),
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, hero)
+    local explore = create("TextButton", {
+        Position = UDim2.fromOffset(20, 108),
+        Size = UDim2.fromOffset(118, 26),
+        BackgroundColor3 = COLORS.Purple,
+        Text = "EXPLORE GAMES",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+    }, hero)
+    corner(explore, 8)
+    return explore
+end
+
+local function makeGameCard(parent, game)
+    local card = create("Frame", {
+        Name = game.Id .. "Card",
+        BackgroundColor3 = COLORS.Surface2,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, parent)
+    corner(card, 14)
+    stroke(card, COLORS.Border, 0.2)
+
+    local art = create("Frame", {
+        Name = "Artwork",
+        Position = UDim2.fromOffset(8, 8),
+        Size = UDim2.new(1, -16, 0, 76),
+        BackgroundColor3 = Color3.fromRGB(54, 40, 86),
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, card)
+    corner(art, 10)
+    create("UIGradient", {
+        Color = ColorSequence.new(COLORS.Purple, Color3.fromRGB(42, 34, 62)),
+        Rotation = 20,
+    }, art)
+    if game.Image and game.Image ~= "" then
+        create("ImageLabel", {
+            Name = "GameImage",
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Image = game.Image,
+            ScaleType = Enum.ScaleType.Crop,
+        }, art)
+    else
+        create("TextLabel", {
+            Size = UDim2.fromScale(1, 1),
+            BackgroundTransparency = 1,
+            Text = game.ShortName,
+            TextColor3 = Color3.fromRGB(241, 232, 255),
+            Font = Enum.Font.GothamBlack,
+            TextSize = 30,
+        }, art)
+    end
+
+    create("TextLabel", {
+        Position = UDim2.fromOffset(12, 91),
+        Size = UDim2.new(1, -24, 0, 13),
+        BackgroundTransparency = 1,
+        Text = game.Category,
+        TextColor3 = COLORS.PurpleLight,
+        Font = Enum.Font.GothamBold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, card)
+    create("TextLabel", {
+        Position = UDim2.fromOffset(12, 106),
+        Size = UDim2.new(1, -24, 0, 21),
+        BackgroundTransparency = 1,
+        Text = game.Name,
+        TextColor3 = COLORS.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, card)
+    create("TextLabel", {
+        Position = UDim2.fromOffset(12, 128),
+        Size = UDim2.new(1, -24, 0, 25),
+        BackgroundTransparency = 1,
+        Text = game.Description,
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+    }, card)
+
+    local openButton = create("TextButton", {
+        Name = "OpenButton",
+        AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.new(0, 12, 1, -9),
+        Size = UDim2.new(1, -24, 0, 27),
+        BackgroundColor3 = game.Enabled and COLORS.Purple or COLORS.Surface3,
+        Text = game.Enabled and "OPEN MENU  →" or "COMING SOON",
+        TextColor3 = game.Enabled and Color3.new(1, 1, 1) or COLORS.Muted,
+        Font = Enum.Font.GothamBold,
+        TextSize = 9,
+        AutoButtonColor = false,
+        Active = game.Enabled,
+        BorderSizePixel = 0,
+    }, card)
+    corner(openButton, 8)
+    if game.Enabled then
+        openButton.Activated:Connect(function()
+            selectedEvent:Fire(game.Id, game.Name)
+        end)
+        openButton.MouseEnter:Connect(function()
+            TweenService:Create(openButton, TweenInfo.new(0.12), {
+                BackgroundColor3 = COLORS.PurpleLight,
+            }):Play()
+        end)
+        openButton.MouseLeave:Connect(function()
+            TweenService:Create(openButton, TweenInfo.new(0.12), {
+                BackgroundColor3 = COLORS.Purple,
+            }):Play()
+        end)
+    end
+    return card
+end
+
+local function makeCardGrid(parent)
+    local grid = create("Frame", {
+        Name = "GameCards",
+        Size = UDim2.new(1, 0, 0, 188),
+        BackgroundTransparency = 1,
+    }, parent)
+    local layout = create("UIGridLayout", {
+        CellSize = UDim2.new(0.5, -7, 0, 188),
+        CellPadding = UDim2.fromOffset(14, 12),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, grid)
+    for _, game in ipairs(GAMES) do
+        makeGameCard(grid, game)
+    end
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
+    end)
+    return grid, layout
+end
+
+-- Home page
+local homePage = makePage("Home")
+pageTitle(homePage, "Home", "Your KATO HUB dashboard.")
+local exploreButton = makeHero(homePage)
+sectionTitle(homePage, "SUPPORTED GAMES", "SELECT TO OPEN")
+local homeGrid, homeGridLayout = makeCardGrid(homePage)
+
+-- Game selector page
+local selectorPage = makePage("Game Selector")
+pageTitle(selectorPage, "Game Selector", "Browse the game menus available in this hub.")
+local searchBox = create("TextBox", {
+    Name = "SearchGames",
+    Size = UDim2.new(1, 0, 0, 38),
+    BackgroundColor3 = COLORS.Surface2,
+    PlaceholderText = "Search games...",
+    PlaceholderColor3 = COLORS.Muted,
+    Text = "",
+    TextColor3 = COLORS.Text,
+    Font = Enum.Font.Gotham,
+    TextSize = 12,
+    ClearTextOnFocus = false,
+    BorderSizePixel = 0,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, selectorPage)
+corner(searchBox, 10)
+stroke(searchBox, COLORS.Border, 0.35)
+create("UIPadding", {
+    PaddingLeft = UDim.new(0, 12),
+    PaddingRight = UDim.new(0, 12),
+}, searchBox)
+sectionTitle(selectorPage, "ALL GAMES", "GAME LIBRARY")
+local selectorGrid, selectorGridLayout = makeCardGrid(selectorPage)
+
+-- Favorites page (placeholder layout)
+local favoritesPage = makePage("Favorites")
+pageTitle(favoritesPage, "Favorites", "Your pinned game menus will appear here.")
+local favoritesEmpty = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 150),
+    BackgroundColor3 = COLORS.Surface2,
+    BorderSizePixel = 0,
+}, favoritesPage)
+corner(favoritesEmpty, 14)
+create("TextLabel", {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Text = "☆\nNo favorites yet",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 15,
+}, favoritesEmpty)
+
+-- Recently used page (placeholder layout)
+local recentPage = makePage("Recently Used")
+pageTitle(recentPage, "Recently Used", "Game menus you open can be listed here.")
+local recentEmpty = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 150),
+    BackgroundColor3 = COLORS.Surface2,
+    BorderSizePixel = 0,
+}, recentPage)
+corner(recentEmpty, 14)
+create("TextLabel", {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Text = "◷\nNothing opened yet",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 15,
+}, recentEmpty)
+
+-- Settings page (display-only for this first GUI pass)
+local settingsPage = makePage("Settings")
+pageTitle(settingsPage, "Settings", "KATO HUB interface preferences.")
+local settingsPanel = create("Frame", {
+    Size = UDim2.new(1, 0, 0, 116),
+    BackgroundColor3 = COLORS.Surface2,
+    BorderSizePixel = 0,
+}, settingsPage)
+corner(settingsPanel, 14)
+create("UIPadding", {
+    PaddingLeft = UDim.new(0, 16),
+    PaddingRight = UDim.new(0, 16),
+    PaddingTop = UDim.new(0, 13),
+}, settingsPanel)
+create("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 23),
+    BackgroundTransparency = 1,
+    Text = "Appearance",
+    TextColor3 = COLORS.Text,
+    Font = Enum.Font.GothamBold,
+    TextSize = 13,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, settingsPanel)
+create("TextLabel", {
+    Position = UDim2.fromOffset(0, 27),
+    Size = UDim2.new(1, 0, 0, 20),
+    BackgroundTransparency = 1,
+    Text = "Theme",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, settingsPanel)
+create("TextLabel", {
+    AnchorPoint = Vector2.new(1, 0),
+    Position = UDim2.new(1, 0, 0, 27),
+    Size = UDim2.fromOffset(120, 20),
+    BackgroundTransparency = 1,
+    Text = "Dark / Purple",
+    TextColor3 = COLORS.PurpleLight,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Right,
+}, settingsPanel)
+create("TextLabel", {
+    Position = UDim2.fromOffset(0, 57),
+    Size = UDim2.new(1, 0, 0, 20),
+    BackgroundTransparency = 1,
+    Text = "Layout",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, settingsPanel)
+create("TextLabel", {
+    AnchorPoint = Vector2.new(1, 0),
+    Position = UDim2.new(1, 0, 0, 57),
+    Size = UDim2.fromOffset(120, 20),
+    BackgroundTransparency = 1,
+    Text = "Auto responsive",
+    TextColor3 = COLORS.PurpleLight,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Right,
+}, settingsPanel)
+
+-- Navigation
+local NAV_ITEMS = {
+    { Name = "Home", Icon = "⌂" },
+    { Name = "Game Selector", Icon = "▦" },
+    { Name = "Favorites", Icon = "☆" },
+    { Name = "Recently Used", Icon = "◷" },
+    { Name = "Settings", Icon = "⚙" },
+}
+
+local function setActivePage(pageName)
+    if not pages[pageName] then
+        return
+    end
+    for name, page in pairs(pages) do
+        page.Visible = (name == pageName)
+    end
+    for name, button in pairs(navButtons) do
+        local selected = (name == pageName)
+        button.BackgroundColor3 = selected and COLORS.Surface3 or COLORS.Surface
+        local accent = button:FindFirstChild("Accent")
+        local icon = button:FindFirstChild("Icon")
+        local label = button:FindFirstChild("Label")
+        if accent then accent.Visible = selected end
+        if icon then icon.TextColor3 = selected and COLORS.PurpleLight or COLORS.Muted end
+        if label then label.TextColor3 = selected and COLORS.Text or COLORS.Muted end
+    end
+end
+
+for index, item in ipairs(NAV_ITEMS) do
+    local button = create("TextButton", {
+        Name = item.Name,
+        Size = UDim2.new(1, 0, 0, 43),
+        BackgroundColor3 = COLORS.Surface,
+        Text = "",
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+        LayoutOrder = index,
+    }, navHolder)
+    corner(button, 10)
+    create("Frame", {
+        Name = "Accent",
+        Position = UDim2.fromOffset(0, 8),
+        Size = UDim2.new(0, 3, 1, -16),
+        BackgroundColor3 = COLORS.PurpleLight,
+        BorderSizePixel = 0,
+        Visible = false,
+    }, button)
+    create("TextLabel", {
+        Name = "Icon",
+        Position = UDim2.fromOffset(7, 0),
+        Size = UDim2.fromOffset(34, 43),
+        BackgroundTransparency = 1,
+        Text = item.Icon,
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.GothamBold,
+        TextSize = 17,
+    }, button)
+    create("TextLabel", {
+        Name = "Label",
+        Position = UDim2.fromOffset(43, 0),
+        Size = UDim2.new(1, -48, 1, 0),
+        BackgroundTransparency = 1,
+        Text = item.Name,
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, button)
+    button.Activated:Connect(function()
+        setActivePage(item.Name)
+    end)
+    navButtons[item.Name] = button
+end
+
+local function updateGrid(grid, layout)
+    if isMobile then
+        layout.CellSize = UDim2.new(1, 0, 0, 188)
+        layout.CellPadding = UDim2.fromOffset(0, 12)
+    else
+        layout.CellSize = UDim2.new(0.5, -7, 0, 188)
+        layout.CellPadding = UDim2.fromOffset(14, 12)
+    end
+    grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
+end
+
+local function refreshLayout()
+    local camera = Workspace.CurrentCamera
+    local viewport = camera and camera.ViewportSize or Vector2.new(1000, 700)
+    isMobile = viewport.X < 680
+    if isMinimized then return end
+
+    if isMobile then
+        window.Size = UDim2.new(0.98, 0, 0.94, 0)
+        sidebar.Size = UDim2.new(0, 62, 1, 0)
+        pageHost.Position = UDim2.new(0, 62, 0, 0)
+        pageHost.Size = UDim2.new(1, -62, 1, 0)
+        sidebarTitle.Visible = false
+        sidebarStatus.Visible = false
+        brandSub.Visible = false
+        brandName.Size = UDim2.fromOffset(120, 22)
+        version.Visible = false
+        for _, button in pairs(navButtons) do
+            button.Size = UDim2.new(1, -12, 0, 43)
+            button.Label.Visible = false
+            button.Icon.Position = UDim2.fromOffset(0, 0)
+            button.Icon.Size = UDim2.fromScale(1, 1)
+        end
+        navHolder.Position = UDim2.fromOffset(6, 18)
+        navHolder.Size = UDim2.new(1, -12, 0, 245)
+        navLayout.Padding = UDim.new(0, 8)
+    else
+        window.Size = UDim2.fromOffset(980, 650)
+        sidebar.Size = UDim2.new(0, 190, 1, 0)
+        pageHost.Position = UDim2.new(0, 190, 0, 0)
+        pageHost.Size = UDim2.new(1, -190, 1, 0)
+        sidebarTitle.Visible = true
+        sidebarStatus.Visible = true
+        brandSub.Visible = true
+        brandName.Size = UDim2.fromOffset(190, 22)
+        version.Visible = true
+        for _, button in pairs(navButtons) do
+            button.Size = UDim2.new(1, 0, 0, 43)
+            button.Label.Visible = true
+            button.Icon.Position = UDim2.fromOffset(7, 0)
+            button.Icon.Size = UDim2.fromOffset(34, 43)
+        end
+        navHolder.Position = UDim2.fromOffset(10, 48)
+        navHolder.Size = UDim2.new(1, -20, 0, 250)
+        navLayout.Padding = UDim.new(0, 7)
+    end
+    updateGrid(homeGrid, homeGridLayout)
+    updateGrid(selectorGrid, selectorGridLayout)
+end
+
+exploreButton.Activated:Connect(function()
+    setActivePage("Game Selector")
+end)
+
+searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local query = string.lower(searchBox.Text)
+    for _, card in ipairs(selectorGrid:GetChildren()) do
+        if card:IsA("Frame") then
+            for _, game in ipairs(GAMES) do
+                if card.Name == game.Id .. "Card" then
+                    local searchable = string.lower(game.Name .. " " .. game.Id)
+                    card.Visible = (query == "") or (string.find(searchable, query, 1, true) ~= nil)
+                    break
+                end
+            end
+        end
+    end
+end)
+
+minimizeButton.Activated:Connect(function()
+    isMinimized = not isMinimized
+    body.Visible = not isMinimized
+    overlay.BackgroundTransparency = isMinimized and 1 or 0.38
+    if isMinimized then
+        window.AnchorPoint = Vector2.new(1, 1)
+        window.Position = UDim2.new(1, -12, 1, -12)
+        window.Size = UDim2.fromOffset(300, 62)
+        minimizeButton.Text = "□"
+        version.Visible = false
+        brandSub.Visible = false
+    else
+        window.AnchorPoint = Vector2.new(0.5, 0.5)
+        window.Position = UDim2.fromScale(0.5, 0.5)
+        minimizeButton.Text = "−"
+        refreshLayout()
+    end
+end)
+
+closeButton.Activated:Connect(function()
+    screen.Enabled = false
+end)
+
+local function connectCamera(camera)
+    if camera then
+        camera:GetPropertyChangedSignal("ViewportSize"):Connect(refreshLayout)
+        refreshLayout()
+    end
+end
+connectCamera(Workspace.CurrentCamera)
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
+    connectCamera(Workspace.CurrentCamera)
+end)
+
+setActivePage("Home")
+refreshLayout()
+print("[KATO HUB] Main GUI loaded. Listen to PlayerGui.KATOHubGameSelected for menu selection.")
