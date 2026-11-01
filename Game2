@@ -1,1 +1,787 @@
+--[[
+    ====================================================
+        KATO HUB v3.1 - ADVANCED TACTICAL SUITE
+        Features: Fixed Tracers, Head Arrows, Obstacle Check
+    ====================================================
+]]
 
+--// SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+--// CLEANUP PREVIOUS INSTANCES
+local GUI_NAME = "KatoHub_Ultimate"
+local targetParent = pcall(function() return CoreGui.Name end) and CoreGui or PlayerGui
+if targetParent:FindFirstChild(GUI_NAME) then
+    targetParent[GUI_NAME]:Destroy()
+end
+
+--// CONFIGURATION
+local HubConfig = {
+    ToggleKey = Enum.KeyCode.RightShift,
+    WindowVisible = true,
+    WindowScale = 1,
+    Transparency = 0,
+    Language = "VI",
+    ShowPerformanceHUD = true,
+}
+
+local TacticalConfig = {
+    EnemyColor = Color3.fromRGB(255, 45, 45),
+    TeamColor = Color3.fromRGB(45, 255, 135),
+    WarningDistance = 150,
+    MaxDistance = 1000,
+    HighlightEnabled = true,
+    ShowNames = true,
+    ShowDistance = true,
+    TracersEnabled = true,
+    ObstacleCheckEnabled = true,
+}
+
+--// THEME PALETTE
+local Theme = {
+    Background = Color3.fromRGB(13, 14, 18),
+    Surface = Color3.fromRGB(20, 21, 28),
+    Surface2 = Color3.fromRGB(28, 29, 38),
+    Surface3 = Color3.fromRGB(36, 38, 50),
+    Accent = Color3.fromRGB(140, 80, 240),
+    AccentLight = Color3.fromRGB(185, 140, 255),
+    Text = Color3.fromRGB(245, 245, 250),
+    Muted = Color3.fromRGB(145, 146, 165),
+    Green = Color3.fromRGB(75, 210, 135),
+    Orange = Color3.fromRGB(255, 165, 75),
+    Red = Color3.fromRGB(240, 85, 100),
+    Stroke = Color3.fromRGB(60, 52, 80),
+}
+
+--// LOCALIZATION DICTIONARY
+local Localization = {
+    VI = {
+        appTitle = "KATO HUB",
+        appSubtitle = "ADVANCED TACTICAL SUITE",
+        navHome = "Tổng quan",
+        navTactical = "Chiến thuật",
+        navConsole = "Ghi chú",
+        navSettings = "Cài đặt",
+        homeTitle = "Bảng điều khiển trung tâm",
+        homeDescription = "Hệ thống hỗ trợ chiến thuật nâng cao với kiểm tra vật cản.",
+        quickTitle = "Trạng thái hệ thống",
+        quickDescription = "Đã kích hoạt quét vật cản và chỉ hướng thông minh.",
+        cardInterface = "Giao diện",
+        cardLanguage = "Ngôn ngữ",
+        cardShortcut = "Phím ẩn/hiện",
+        cardReady = "Hoạt động",
+        cardVietnamese = "Tiếng Việt",
+        tacticalTitle = "Cấu hình Chiến thuật & ESP",
+        tacticalDesc = "Tùy chỉnh khung viền, đường kẻ, mũi tên đầu và phát hiện núp.",
+        enableHighlight = "Khung viền Highlight",
+        enableName = "Hiển thị Tên",
+        enableDistance = "Hiển thị Khoảng cách",
+        enableTracer = "Đường kẻ chỉ hướng (Tracer)",
+        enableObstacle = "Kiểm tra vật cản (Núp tường)",
+        settingsTitle = "Tùy chỉnh Hệ thống",
+        settingsDescription = "Điều chỉnh kích thước cửa sổ, độ trong suốt và HUD.",
+        language = "Ngôn ngữ hiển thị",
+        scale = "Tỷ lệ khung hình",
+        transparency = "Độ trong suốt",
+        performance = "Bảng hiệu suất (HUD)",
+        toggleKey = "Phím chuyển đổi",
+        resetPosition = "Đặt lại vị trí",
+        fps = "FPS",
+        ping = "PING",
+        frame = "FRAME",
+        footer = "KATO HUB  •  ULTIMATE v3.1",
+        mobileHint = "Giao diện tự động thu gọn cho màn hình nhỏ.",
+    },
+    EN = {
+        appTitle = "KATO HUB",
+        appSubtitle = "ADVANCED TACTICAL SUITE",
+        navHome = "Overview",
+        navTactical = "Tactical",
+        navConsole = "Notes",
+        navSettings = "Settings",
+        homeTitle = "Central Control Panel",
+        homeDescription = "Advanced tactical support with obstacle detection.",
+        quickTitle = "System Status",
+        quickDescription = "Obstacle check and smart tracers are active.",
+        cardInterface = "Interface",
+        cardLanguage = "Language",
+        cardShortcut = "Toggle Key",
+        cardReady = "Active",
+        cardVietnamese = "English",
+        tacticalTitle = "Tactical & ESP Settings",
+        tacticalDesc = "Customize boxes, tracers, head arrows, and cover status.",
+        enableHighlight = "Highlight Boxes",
+        enableName = "Show Names",
+        enableDistance = "Show Distance",
+        enableTracer = "Tracer Lines",
+        enableObstacle = "Obstacle Check (Cover)",
+        settingsTitle = "System Customization",
+        settingsDescription = "Adjust window scale, transparency, and HUD metrics.",
+        language = "Display Language",
+        scale = "Window Scale",
+        transparency = "Transparency",
+        performance = "Performance HUD",
+        toggleKey = "Toggle Key",
+        resetPosition = "Reset Position",
+        fps = "FPS",
+        ping = "PING",
+        frame = "FRAME",
+        footer = "KATO HUB  •  ULTIMATE v3.1",
+        mobileHint = "Interface is compacted for smaller screens.",
+    },
+}
+
+local function tr(key)
+    local lang = Localization[HubConfig.Language] or Localization.VI
+    return lang[key] or Localization.VI[key] or key
+end
+
+--// UI UTILITY BUILDERS
+local function make(className, properties, parent)
+    local obj = Instance.new(className)
+    for prop, val in pairs(properties or {}) do
+        obj[prop] = val
+    end
+    obj.Parent = parent
+    return obj
+end
+
+local function corner(parent, radius)
+    return make("UICorner", { CornerRadius = UDim.new(0, radius or 10) }, parent)
+end
+
+local function stroke(parent, color, transparency, thickness)
+    return make("UIStroke", {
+        Color = color or Theme.Stroke,
+        Transparency = transparency == nil and 0.5 or transparency,
+        Thickness = thickness or 1,
+    }, parent)
+end
+
+local function tween(object, duration, properties)
+    local anim = TweenService:Create(object, TweenInfo.new(duration or 0.18, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), properties)
+    anim:Play()
+    return anim
+end
+
+local function addPadding(parent, l, t, r, b)
+    return make("UIPadding", {
+        PaddingLeft = UDim.new(0, l or 0),
+        PaddingTop = UDim.new(0, t or 0),
+        PaddingRight = UDim.new(0, r or 0),
+        PaddingBottom = UDim.new(0, b or 0),
+    }, parent)
+end
+
+local function makeLabel(parent, textVal, size, color, font, alignment)
+    return make("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = textVal or "",
+        TextColor3 = color or Theme.Text,
+        TextSize = size or 14,
+        Font = font or Enum.Font.Gotham,
+        TextXAlignment = alignment or Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextWrapped = true,
+    }, parent)
+end
+
+local function makeButton(parent, textVal, size, position, primary)
+    local btn = make("TextButton", {
+        AutoButtonColor = false,
+        Text = textVal or "",
+        Size = size,
+        Position = position or UDim2.new(),
+        BackgroundColor3 = primary and Theme.Accent or Theme.Surface3,
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 13,
+        BorderSizePixel = 0,
+    }, parent)
+    corner(btn, 9)
+    local baseColor = primary and Theme.Accent or Theme.Surface3
+    btn:SetAttribute("BaseColor", baseColor)
+    btn.MouseEnter:Connect(function()
+        local cur = btn:GetAttribute("BaseColor") or baseColor
+        tween(btn, 0.14, { BackgroundColor3 = cur:Lerp(Theme.AccentLight, 0.28) })
+    end)
+    btn.MouseLeave:Connect(function()
+        local cur = btn:GetAttribute("BaseColor") or baseColor
+        tween(btn, 0.14, { BackgroundColor3 = cur })
+    end)
+    return btn
+end
+
+local function setButtonBaseColor(btn, color)
+    btn:SetAttribute("BaseColor", color)
+    btn.BackgroundColor3 = color
+end
+
+local function makeCard(parent, height)
+    local card = make("Frame", {
+        BackgroundColor3 = Theme.Surface,
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, height or 100),
+    }, parent)
+    corner(card, 12)
+    stroke(card, Theme.Stroke, 0.72, 1)
+    return card
+end
+
+--// GUI INITIALIZATION
+local screenGui = make("ScreenGui", {
+    Name = GUI_NAME,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 100,
+}, targetParent)
+
+local warningLabel = makeLabel(screenGui, "", 24, Theme.Red, Enum.Font.SourceSansBold, Enum.TextXAlignment.Center)
+warningLabel.Size = UDim2.new(0, 500, 0, 50)
+warningLabel.Position = UDim2.new(0.5, -250, 0.12, 0)
+warningLabel.Visible = false
+warningLabel.TextStrokeTransparency = 0
+warningLabel.ZIndex = 30
+
+local restoreButton = makeButton(screenGui, "K", UDim2.fromOffset(48, 48), UDim2.new(0, 18, 0.72, 0), true)
+restoreButton.TextSize = 20
+restoreButton.Visible = false
+restoreButton.ZIndex = 20
+
+local mainFrame = make("Frame", {
+    Name = "MainWindow",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    Size = UDim2.fromOffset(860, 590),
+    BackgroundColor3 = Theme.Background,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, screenGui)
+corner(mainFrame, 16)
+stroke(mainFrame, Theme.Accent, 0.3, 1.4)
+local mainScale = make("UIScale", { Scale = HubConfig.WindowScale }, mainFrame)
+
+local header = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 62),
+    BackgroundColor3 = Theme.Surface,
+    BorderSizePixel = 0,
+}, mainFrame)
+
+local accentLine = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 2),
+    Position = UDim2.new(0, 0, 1, -2),
+    BackgroundColor3 = Theme.Accent,
+    BorderSizePixel = 0,
+}, header)
+
+local titleArea = make("Frame", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(18, 0),
+    Size = UDim2.new(1, -150, 1, 0),
+    ZIndex = 2,
+}, header)
+
+local titleLabel = makeLabel(titleArea, tr("appTitle"), 18, Theme.Text, Enum.Font.GothamBold)
+titleLabel.Size = UDim2.new(1, 0, 0, 25)
+titleLabel.Position = UDim2.fromOffset(0, 8)
+titleLabel.ZIndex = 2
+
+local subtitleLabel = makeLabel(titleArea, tr("appSubtitle"), 9, Theme.Muted, Enum.Font.GothamBold)
+subtitleLabel.Size = UDim2.new(1, 0, 0, 16)
+subtitleLabel.Position = UDim2.fromOffset(1, 34)
+subtitleLabel.ZIndex = 2
+
+local minimizeButton = makeButton(header, "—", UDim2.fromOffset(31, 30), UDim2.new(1, -43, 0, 16), false)
+minimizeButton.TextSize = 16
+local hideButton = makeButton(header, "×", UDim2.fromOffset(31, 30), UDim2.new(1, -78, 0, 16), false)
+hideButton.TextSize = 19
+
+local body = make("Frame", {
+    Position = UDim2.fromOffset(0, 63),
+    Size = UDim2.new(1, 0, 1, -63),
+    BackgroundTransparency = 1,
+}, mainFrame)
+
+local sidebar = make("Frame", {
+    Size = UDim2.new(0, 174, 1, 0),
+    BackgroundColor3 = Theme.Surface,
+    BorderSizePixel = 0,
+}, body)
+
+local sidebarList = make("Frame", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(10, 16),
+    Size = UDim2.new(1, -20, 1, -65),
+}, sidebar)
+make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, sidebarList)
+
+local sidebarFooter = makeLabel(sidebar, tr("footer"), 8, Theme.Muted, Enum.Font.GothamMedium)
+sidebarFooter.Position = UDim2.new(0, 10, 1, -33)
+sidebarFooter.Size = UDim2.new(1, -20, 0, 22)
+sidebarFooter.TextWrapped = true
+
+local contentArea = make("Frame", {
+    Position = UDim2.new(0, 174, 0, 0),
+    Size = UDim2.new(1, -174, 1, 0),
+    BackgroundTransparency = 1,
+}, body)
+
+local pageHost = make("Frame", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(16, 15),
+    Size = UDim2.new(1, -32, 1, -30),
+}, contentArea)
+
+local pages = {}
+local tabButtons = {}
+local currentPage = "Home"
+
+local function createPage(name)
+    local scroll = make("ScrollingFrame", {
+        Name = name .. "Page",
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = Theme.Accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        Visible = false,
+    }, pageHost)
+    addPadding(scroll, 1, 1, 8, 12)
+    make("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }, scroll)
+    pages[name] = scroll
+    return scroll
+end
+
+local function createSectionTitle(parent, tText, dText)
+    local holder = make("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 62) }, parent)
+    local title = makeLabel(holder, tText, 20, Theme.Text, Enum.Font.GothamBold)
+    title.Size = UDim2.new(1, 0, 0, 30)
+    local desc = makeLabel(holder, dText, 11, Theme.Muted, Enum.Font.Gotham)
+    desc.Size = UDim2.new(1, 0, 0, 28)
+    desc.Position = UDim2.fromOffset(0, 31)
+    return holder, title, desc
+end
+
+-- 1. Overview Page
+local homePage = createPage("Home")
+createSectionTitle(homePage, tr("homeTitle"), tr("homeDescription"))
+
+local welcomeCard = makeCard(homePage, 126)
+welcomeCard.BackgroundColor3 = Color3.fromRGB(35, 26, 55)
+local welcomeAccent = make("Frame", { Size = UDim2.new(0, 4, 1, -28), Position = UDim2.fromOffset(0, 14), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0 }, welcomeCard)
+corner(welcomeAccent, 4)
+local welcomeHeading = makeLabel(welcomeCard, tr("quickTitle"), 16, Theme.Text, Enum.Font.GothamBold)
+welcomeHeading.Position = UDim2.fromOffset(19, 18)
+welcomeHeading.Size = UDim2.new(1, -38, 0, 25)
+local welcomeDesc = makeLabel(welcomeCard, tr("quickDescription"), 11, Theme.Muted, Enum.Font.Gotham)
+welcomeDesc.Position = UDim2.fromOffset(19, 47)
+welcomeDesc.Size = UDim2.new(1, -38, 0, 38)
+
+local statsHolder = make("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 88) }, homePage)
+local statsLayout = make("UIGridLayout", { CellPadding = UDim2.fromOffset(10, 0), CellSize = UDim2.new(1/3, -7, 1, 0), SortOrder = Enum.SortOrder.LayoutOrder }, statsHolder)
+
+local function createStatCard(parent, titleText, valueText, order)
+    local card = makeCard(parent, 88)
+    card.LayoutOrder = order
+    local label = makeLabel(card, titleText, 9, Theme.Muted, Enum.Font.GothamBold)
+    label.Position = UDim2.fromOffset(11, 12)
+    label.Size = UDim2.new(1, -20, 0, 20)
+    local value = makeLabel(card, valueText, 14, Theme.AccentLight, Enum.Font.GothamBold)
+    value.Position = UDim2.fromOffset(11, 38)
+    value.Size = UDim2.new(1, -20, 0, 25)
+    return card, label, value
+end
+
+createStatCard(statsHolder, tr("cardInterface"), tr("cardReady"), 1)
+createStatCard(statsHolder, tr("cardLanguage"), tr("cardVietnamese"), 2)
+createStatCard(statsHolder, tr("cardShortcut"), "RightShift", 3)
+local mobileHint = makeLabel(homePage, tr("mobileHint"), 10, Theme.Muted, Enum.Font.Gotham)
+mobileHint.Size = UDim2.new(1, 0, 0, 26)
+
+-- 2. Tactical & ESP Page
+local tacticalPage = createPage("Tactical")
+createSectionTitle(tacticalPage, tr("tacticalTitle"), tr("tacticalDesc"))
+
+local function createToggleRow(parent, titleText, initialState, callback)
+    local row = make("Frame", { BackgroundColor3 = Theme.Surface, Size = UDim2.new(1, 0, 0, 56), BorderSizePixel = 0 }, parent)
+    corner(row, 10)
+    stroke(row, Theme.Stroke, 0.78, 1)
+    local label = makeLabel(row, titleText, 12, Theme.Text, Enum.Font.GothamSemibold)
+    label.Position = UDim2.fromOffset(14, 0)
+    label.Size = UDim2.new(1, -105, 1, 0)
+    local btn = makeButton(row, initialState and "BẬT" or "TẮT", UDim2.fromOffset(82, 30), UDim2.new(1, -94, 0.5, -15), initialState)
+    local state = initialState
+    btn.Activated:Connect(function()
+        state = not state
+        btn.Text = state and "BẬT" or "TẮT"
+        setButtonBaseColor(btn, state and Theme.Accent or Theme.Surface3)
+        callback(state)
+    end)
+    return row, btn
+end
+
+createToggleRow(tacticalPage, tr("enableHighlight"), TacticalConfig.HighlightEnabled, function(v) TacticalConfig.HighlightEnabled = v end)
+createToggleRow(tacticalPage, tr("enableName"), TacticalConfig.ShowNames, function(v) TacticalConfig.ShowNames = v end)
+createToggleRow(tacticalPage, tr("enableDistance"), TacticalConfig.ShowDistance, function(v) TacticalConfig.ShowDistance = v end)
+createToggleRow(tacticalPage, tr("enableTracer"), TacticalConfig.TracersEnabled, function(v) TacticalConfig.TracersEnabled = v end)
+createToggleRow(tacticalPage, tr("enableObstacle"), TacticalConfig.ObstacleCheckEnabled, function(v) TacticalConfig.ObstacleCheckEnabled = v end)
+
+-- 3. Console Notes Page
+local consolePage = createPage("Console")
+createSectionTitle(consolePage, tr("consoleTitle"), "Nhập ghi chú chiến thuật cá nhân.")
+
+local editorCard = makeCard(consolePage, 258)
+local codeBox = make("TextBox", {
+    Name = "DraftEditor",
+    Position = UDim2.fromOffset(12, 12),
+    Size = UDim2.new(1, -24, 1, -24),
+    BackgroundColor3 = Color3.fromRGB(15, 16, 22),
+    TextColor3 = Color3.fromRGB(150, 230, 180),
+    PlaceholderColor3 = Theme.Muted,
+    Font = Enum.Font.Code,
+    TextSize = 12,
+    TextXAlignment = Enum.TextXAlignment.Left,
+    TextYAlignment = Enum.TextYAlignment.Top,
+    TextWrapped = false,
+    ClearTextOnFocus = false,
+    MultiLine = true,
+    Text = "-- Nhập ghi chú cấu hình tại đây...",
+    BorderSizePixel = 0,
+}, editorCard)
+corner(codeBox, 8)
+addPadding(codeBox, 10, 10, 10, 10)
+
+-- 4. Settings Page
+local settingsPage = createPage("Settings")
+createSectionTitle(settingsPage, tr("settingsTitle"), tr("settingsDescription"))
+
+local function createSettingRow(parent, titleText, descText, rightWidth)
+    local row = make("Frame", { BackgroundColor3 = Theme.Surface, Size = UDim2.new(1, 0, 0, 66), BorderSizePixel = 0 }, parent)
+    corner(row, 10)
+    stroke(row, Theme.Stroke, 0.78, 1)
+    local title = makeLabel(row, titleText, 12, Theme.Text, Enum.Font.GothamSemibold)
+    title.Name = "SettingTitle"
+    title.Position = UDim2.fromOffset(13, 8)
+    title.Size = UDim2.new(1, -(rightWidth or 150), 0, 23)
+    local desc = makeLabel(row, descText or "", 9, Theme.Muted, Enum.Font.Gotham)
+    desc.Name = "SettingDescription"
+    desc.Position = UDim2.fromOffset(13, 32)
+    desc.Size = UDim2.new(1, -(rightWidth or 150), 0, 22)
+    return row, title, desc
+end
+
+createSettingRow(settingsPage, tr("language"), "VI / EN", 150)
+createSettingRow(settingsPage, tr("scale"), "80% – 110%", 150)
+createSettingRow(settingsPage, tr("transparency"), "0% – 25%", 150)
+local hudRow = createSettingRow(settingsPage, tr("performance"), "FPS · Ping · Frame time", 150)
+local hudButton = makeButton(hudRow, "HIỆN", UDim2.fromOffset(82, 32), UDim2.new(1, -94, 0.5, -16), true)
+
+hudButton.Activated:Connect(function()
+    HubConfig.ShowPerformanceHUD = not HubConfig.ShowPerformanceHUD
+    hudButton.Text = HubConfig.ShowPerformanceHUD and "HIỆN" or "ẨN"
+end)
+
+--// NAVIGATION LOGIC
+local navDefinitions = {
+    { id = "Home", icon = "⌂", key = "navHome" },
+    { id = "Tactical", icon = "◎", key = "navTactical" },
+    { id = "Console", icon = "⌨", key = "navConsole" },
+    { id = "Settings", icon = "⚙", key = "navSettings" },
+}
+
+local function selectPage(pageName)
+    currentPage = pageName
+    for name, page in pairs(pages) do
+        page.Visible = name == pageName
+    end
+    for name, btn in pairs(tabButtons) do
+        local selected = name == pageName
+        btn.BackgroundColor3 = selected and Color3.fromRGB(50, 35, 75) or Theme.Surface
+        btn.TextColor3 = selected and Theme.AccentLight or Theme.Muted
+        local ind = btn:FindFirstChild("ActiveIndicator")
+        if ind then ind.Visible = selected end
+    end
+end
+
+for index, def in ipairs(navDefinitions) do
+    local btn = make("TextButton", {
+        Name = def.id .. "Tab",
+        AutoButtonColor = false,
+        Size = UDim2.new(1, 0, 0, 43),
+        BackgroundColor3 = Theme.Surface,
+        Text = def.icon .. "   " .. tr(def.key),
+        TextColor3 = Theme.Muted,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        BorderSizePixel = 0,
+        LayoutOrder = index,
+    }, sidebarList)
+    corner(btn, 9)
+    addPadding(btn, 12, 0, 7, 0)
+    local ind = make("Frame", { Name = "ActiveIndicator", Size = UDim2.new(0, 3, 1, -14), Position = UDim2.new(0, 0, 0, 7), BackgroundColor3 = Theme.AccentLight, BorderSizePixel = 0, Visible = false }, btn)
+    corner(ind, 4)
+    btn.Activated:Connect(function() selectPage(def.id) end)
+    tabButtons[def.id] = btn
+end
+
+selectPage("Home")
+
+--// WINDOW VISIBILITY & DRAGGING
+local function setWindowVisible(v)
+    mainFrame.Visible = v
+    restoreButton.Visible = not v
+end
+
+hideButton.Activated:Connect(function() setWindowVisible(false) end)
+minimizeButton.Activated:Connect(function() setWindowVisible(false) end)
+restoreButton.Activated:Connect(function() setWindowVisible(true) end)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if not gp and input.KeyCode == HubConfig.ToggleKey then
+        setWindowVisible(not mainFrame.Visible)
+    end
+end)
+
+local dragging, dragStart, startPos
+local dragZone = make("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -150, 1, 0), Active = true }, header)
+
+dragZone.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+--// PERFORMANCE HUD & TACTICAL ESP SYSTEM (FIXED TRACER, HEAD ARROW & OBSTACLE CHECK)
+local performanceHud = make("Frame", {
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -16, 1, -16),
+    Size = UDim2.fromOffset(220, 42),
+    BackgroundColor3 = Theme.Surface,
+    BackgroundTransparency = 0.08,
+    BorderSizePixel = 0,
+}, screenGui)
+corner(performanceHud, 9)
+stroke(performanceHud, Theme.Stroke, 0.65, 1)
+
+local performanceText = makeLabel(performanceHud, "FPS --   |   PING --   |   FRAME --", 9, Theme.AccentLight, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+performanceText.Size = UDim2.new(1, -12, 1, 0)
+performanceText.Position = UDim2.fromOffset(6, 0)
+
+local ESPObjects = {}
+
+local function removeESP(player)
+    if ESPObjects[player] then
+        for _, obj in pairs(ESPObjects[player]) do
+            if typeof(obj) == "Instance" then obj:Destroy() end
+        end
+        ESPObjects[player] = nil
+    end
+end
+
+local function createESP(player)
+    if player == LocalPlayer then return end
+    removeESP(player)
+
+    local character = player.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Head") then return end
+    local rootPart = character.HumanoidRootPart
+    local head = character.Head
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    -- Highlight viền
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "KatoHighlight"
+    highlight.FillTransparency = 0.4
+    highlight.OutlineTransparency = 0.1
+    highlight.Adornee = character
+    highlight.Parent = character
+
+    -- Billboard chứa Tên, Khoảng cách, Mũi tên đầu và Trạng thái núp
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "KatoBillboard"
+    billboard.Size = UDim2.new(0, 160, 0, 60)
+    billboard.AlwaysOnTop = true
+    billboard.ExtentsOffset = Vector3.new(0, 3.5, 0)
+    billboard.Adornee = head
+    billboard.Parent = character
+
+    -- Mũi tên đánh dấu trên đầu (▼)
+    local arrowLabel = Instance.new("TextLabel")
+    arrowLabel.Size = UDim2.new(1, 0, 0, 20)
+    arrowLabel.Position = UDim2.new(0, 0, 0, -18)
+    arrowLabel.BackgroundTransparency = 1
+    arrowLabel.TextSize = 14
+    arrowLabel.Font = Enum.Font.GothamBold
+    arrowLabel.Text = "▼"
+    arrowLabel.TextStrokeTransparency = 0
+    arrowLabel.Parent = billboard
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, -20)
+    textLabel.Position = UDim2.new(0, 0, 0, 18)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextSize = 12
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextStrokeTransparency = 0
+    textLabel.Parent = billboard
+
+    -- Đường kẻ Tracer hiển thị rõ trên workspace.Terrain
+    local tracer = Instance.new("LineHandleAdornment")
+    tracer.Name = "KatoTracer"
+    tracer.Length = 0
+    tracer.Thickness = 2
+    tracer.ZIndex = 5
+    tracer.AlwaysOnTop = true
+    tracer.Adornee = workspace.Terrain
+    tracer.Parent = character
+
+    ESPObjects[player] = { 
+        Highlight = highlight, 
+        Billboard = billboard, 
+        Text = textLabel, 
+        Arrow = arrowLabel,
+        Tracer = tracer, 
+        Character = character, 
+        Humanoid = humanoid, 
+        RootPart = rootPart,
+        Head = head
+    }
+end
+
+for _, p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then
+        if p.Character then createESP(p) end
+        p.CharacterAdded:Connect(function() task.wait(0.4) createESP(p) end)
+    end
+end
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function() task.wait(0.4) createESP(p) end)
+end)
+Players.PlayerRemoving:Connect(removeESP)
+
+-- Hàm kiểm tra vật cản (Núp tường) sử dụng Raycast
+local function checkObstacle(targetHead)
+    if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("Head") then return false end
+    local origin = LocalPlayer.Character.Head.Position
+    local direction = targetHead.Position - origin
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, targetHead.Parent}
+    raycastParams.IgnoreWater = true
+    
+    local result = workspace:Raycast(origin, direction, raycastParams)
+    if result then
+        return true -- Có vật cản che khuất (Đang núp)
+    end
+    return false
+end
+
+local frameCount, elapsed = 0, 0
+RunService.RenderStepped:Connect(function(dt)
+    frameCount += 1
+    elapsed += dt
+    performanceHud.Visible = HubConfig.ShowPerformanceHUD
+
+    if elapsed >= 0.5 then
+        local fps = math.floor(frameCount / elapsed + 0.5)
+        local ping = 0
+        pcall(function() ping = math.floor(LocalPlayer:GetNetworkPing() * 1000 + 0.5) end)
+        performanceText.Text = string.format("FPS %d   |   PING %dms   |   FRAME %.1fms", fps, ping, dt * 1000)
+        frameCount, elapsed = 0, 0
+    end
+
+    local closestEnemyDist = 9999
+    local camera = workspace.CurrentCamera
+    local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    for player, data in pairs(ESPObjects) do
+        if not data.Character:IsDescendantOf(workspace) or data.Humanoid.Health <= 0 then
+            removeESP(player)
+            continue
+        end
+
+        local isTeam = player.Team == LocalPlayer.Team and player.Team ~= nil
+        local color = isTeam and TacticalConfig.TeamColor or TacticalConfig.EnemyColor
+
+        data.Highlight.Enabled = TacticalConfig.HighlightEnabled
+        data.Highlight.FillColor = color
+        data.Highlight.OutlineColor = color
+        data.Arrow.TextColor3 = color
+
+        local dist = 0
+        if myRoot then
+            dist = math.round((data.RootPart.Position - myRoot.Position).Magnitude)
+            if not isTeam and dist < closestEnemyDist then
+                closestEnemyDist = dist
+            end
+        end
+
+        -- Kiểm tra núp sau vật cản
+        local isHidden = false
+        if TacticalConfig.ObstacleCheckEnabled and not isTeam then
+            isHidden = checkObstacle(data.Head)
+        end
+
+        local txt = ""
+        if TacticalConfig.ShowNames then txt = player.Name end
+        if TacticalConfig.ShowDistance then txt = txt .. string.format("\n[%dm]", dist) end
+        
+        if TacticalConfig.ObstacleCheckEnabled and not isTeam then
+            if isHidden then
+                txt = txt .. "\n[ĐANG NÚP]"
+            else
+                txt = txt .. "\n[LỘ DIỆN]"
+            end
+        end
+
+        data.Text.TextColor3 = color
+        data.Text.Text = txt
+
+        -- Cập nhật đường kẻ Tracer rõ nét
+        if TacticalConfig.TracersEnabled and not isTeam and dist >= 10 and dist <= TacticalConfig.MaxDistance and myRoot then
+            data.Tracer.Visible = true
+            data.Tracer.CFrame = CFrame.new(myRoot.Position, data.Head.Position)
+            data.Tracer.Length = (data.Head.Position - myRoot.Position).Magnitude
+            data.Tracer.Color3 = color
+        else
+            data.Tracer.Visible = false
+        end
+    end
+
+    if closestEnemyDist <= TacticalConfig.WarningDistance then
+        warningLabel.Text = string.format("⚠️ CẢNH BÁO: ĐỊCH ÁP SÁT (%dm) ⚠️", closestEnemyDist)
+        warningLabel.Visible = true
+    else
+        warningLabel.Visible = false
+    end
+end)
+
+print("[KATO HUB] Advanced Tactical Suite v3.1 loaded successfully.")
