@@ -79,7 +79,7 @@ local GAMES = {
         DescriptionVi = "Mở giao diện AniP.",
         Image = "rbxthumb://type=GameIcon&id=6788434697&w=512&h=512",
         Enabled = true,
-        Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game2"
+        Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game3"
     },
     {
         Id = "MORE",
