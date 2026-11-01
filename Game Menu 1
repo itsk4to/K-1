@@ -1,1136 +1,387 @@
 --[[
-KATO HUB - THE STRONGEST BATTLEGROUNDS (TSB) MENU
-Type: LocalScript
-Install: StarterPlayer > StarterPlayerScripts > LocalScript
-
-Cách hoạt động:
-- Lắng nghe event từ Main Hub (KATOHubGameSelected)
-- Khi nhận được "TSB" → ẩn Main Hub và mở menu này
+    KATO HUB - TSB 2.0 (Executor Optimized)
+    Tự mở khi được loadstring từ Main Hub
 ]]
 
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Stats = game:GetService("Stats")
 local Workspace = game:GetService("Workspace")
 
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
 
-local TSB_PLACE_ID = 10449761463
-local MAIN_GUI_NAME = "KATO_HUB_MAIN"
-local EVENT_NAME = "KATOHubGameSelected"
-
--- Kết nối event sớm để không bị miss click
-local pendingOpen = false
-local openTSB
-
-local selectedEvent = playerGui:WaitForChild(EVENT_NAME, 10)
-if selectedEvent then
-	selectedEvent.Event:Connect(function(gameId, gameName)
-		if tostring(gameId) == "TSB" or tostring(gameId) == tostring(TSB_PLACE_ID) then
-			if openTSB then
-				openTSB()
-			else
-				pendingOpen = true
-			end
-		end
-	end)
-else
-	warn("[KATO HUB TSB] Không tìm thấy event KATOHubGameSelected")
-end
-
-local C = {
-	Background = Color3.fromRGB(13, 12, 19),
-	Surface = Color3.fromRGB(22, 20, 31),
-	Surface2 = Color3.fromRGB(30, 27, 42),
-	Surface3 = Color3.fromRGB(41, 36, 56),
-	Purple = Color3.fromRGB(137, 92, 246),
-	PurpleLight = Color3.fromRGB(184, 151, 255),
-	Text = Color3.fromRGB(246, 243, 252),
-	Muted = Color3.fromRGB(159, 151, 177),
-	Border = Color3.fromRGB(67, 59, 88),
-	Green = Color3.fromRGB(99, 211, 157),
-	Red = Color3.fromRGB(235, 112, 130),
-	Amber = Color3.fromRGB(241, 190, 104),
+--// Config
+local CONFIG = {
+    GUI_NAME = "KATO_HUB_TSB",
+    MAIN_MENU_URL = "https://raw.githubusercontent.com/itsk4to/K-1/main/Main%20Menu",
+    TOGGLE_KEY = Enum.KeyCode.RightShift,
+    VERSION = "2.0.0",
 }
 
--- Xóa GUI cũ nếu có
-local previous = playerGui:FindFirstChild("KATO_HUB_TSB")
-if previous then
-	previous:Destroy()
-end
-
-local function make(className, props, parent)
-	local obj = Instance.new(className)
-	for key, value in pairs(props or {}) do
-		obj[key] = value
-	end
-	obj.Parent = parent
-	return obj
-end
-
-local function round(parent, radius)
-	return make("UICorner", { CornerRadius = UDim.new(0, radius or 10) }, parent)
-end
-
-local function outline(parent, color, transparency)
-	return make("UIStroke", {
-		Color = color or C.Border,
-		Transparency = transparency or 0,
-		Thickness = 1,
-	}, parent)
-end
-
-local function textLabel(parent, text, size, color, font)
-	return make("TextLabel", {
-		BackgroundTransparency = 1,
-		Text = text,
-		TextColor3 = color or C.Text,
-		Font = font or Enum.Font.Gotham,
-		TextSize = size or 12,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Center,
-		TextWrapped = true,
-	}, parent)
-end
-
-local function button(parent, text, width, height, accent)
-	local b = make("TextButton", {
-		Size = UDim2.fromOffset(width or 100, height or 32),
-		BackgroundColor3 = accent and C.Purple or C.Surface3,
-		Text = text,
-		TextColor3 = C.Text,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 11,
-		AutoButtonColor = true,
-		BorderSizePixel = 0,
-	}, parent)
-	round(b, 8)
-	return b
-end
-
-local function translate(text, language)
-	if language \~= "VI" then
-		return text
-	end
-	local words = {
-		["The Strongest Battlegrounds"] = "The Strongest Battlegrounds",
-		["Combat"] = "Chiến đấu",
-		["Moveset"] = "Bộ kỹ năng",
-		["Visuals"] = "Hình ảnh",
-		["Misc"] = "Khác",
-		["Settings"] = "Cài đặt",
-		["Build your own Combat layout."] = "Tự tạo bố cục cho mục Chiến đấu.",
-		["Build your own Moveset layout."] = "Tự tạo bố cục cho mục Bộ kỹ năng.",
-		["Build your own Visuals layout."] = "Tự tạo bố cục cho mục Hình ảnh.",
-		["Build your own Misc layout."] = "Tự tạo bố cục cho mục Khác.",
-		["Add a group"] = "Thêm nhóm",
-		["Group name..."] = "Tên nhóm...",
-		["Add group"] = "Thêm nhóm",
-		["Button name..."] = "Tên nút...",
-		["Add button"] = "Thêm nút",
-		["Remove"] = "Xóa",
-		["No groups yet. Add a group to start building this tab."] = "Chưa có nhóm. Hãy thêm nhóm để bắt đầu.",
-		["Buttons are placeholders. Add your own allowed UI actions later."] = "Các nút hiện là khung giao diện. Có thể thêm tiện ích hợp lệ sau.",
-		["This is a custom placeholder button."] = "Đây là nút tùy chỉnh dạng khung.",
-		["Performance"] = "Hiệu năng",
-		["Live client performance readings"] = "Thông số hiệu năng trực tiếp của thiết bị",
-		["FPS"] = "Khung hình/giây",
-		["Ping"] = "Độ trễ mạng",
-		["Frame time"] = "Thời gian khung hình",
-		["Show performance HUD"] = "Hiện bảng FPS/Ping",
-		["Hide performance HUD"] = "Ẩn bảng FPS/Ping",
-		["Server information"] = "Thông tin máy chủ",
-		["Place ID"] = "ID trò chơi",
-		["Job ID"] = "Mã phiên máy chủ",
-		["Players in this server"] = "Người chơi trong máy chủ",
-		["Session uptime"] = "Thời gian phiên",
-		["Region"] = "Khu vực",
-		["Not exposed to LocalScripts"] = "LocalScript không đọc được",
-		["Select the Job ID text to copy it."] = "Chọn dòng mã phiên để sao chép.",
-		["Roblox controls server placement. This menu cannot force a region or choose a public server."] = "Roblox tự quản lý việc chọn máy chủ. Menu không thể ép khu vực hoặc chọn server công khai.",
-		["Interface"] = "Giao diện",
-		["Window size"] = "Kích thước cửa sổ",
-		["Transparency"] = "Độ trong suốt",
-		["Language"] = "Ngôn ngữ",
-		["Menu toggle key"] = "Phím ẩn/hiện menu",
-		["Press a key..."] = "Nhấn một phím...",
-		["Reset window position"] = "Đặt lại vị trí cửa sổ",
-		["About"] = "Thông tin",
-		["KATO HUB TSB interface"] = "Giao diện TSB của KATO HUB",
-		["Current Roblox session details"] = "Thông tin phiên Roblox hiện tại",
-		["KATO HUB TSB interface settings and live information."] = "Cài đặt giao diện TSB và thông tin theo thời gian thực.",
-		["English is the default language"] = "Tiếng Anh là ngôn ngữ mặc định",
-		["Press the button, then press a keyboard key"] = "Nhấn nút rồi nhấn một phím trên bàn phím",
-		["Players in this server"] = "Người chơi trong máy chủ",
-		["Session uptime"] = "Thời gian phiên",
-		["Place ID"] = "ID địa điểm",
-		["Region"] = "Khu vực",
-		["Current KATO HUB session — not the external TSB server"] = "Phiên KATO HUB hiện tại — không phải máy chủ TSB bên ngoài",
-		["Live client performance readings"] = "Thông số hiệu năng trực tiếp của thiết bị",
-		["FPS: --"] = "FPS: --",
-		["Ping: --"] = "Ping: --",
-		["Frame: --"] = "Khung hình: --",
-		["Window size"] = "Kích thước cửa sổ",
-		["Transparency 0%"] = "Độ trong suốt 0%",
-		["Transparency"] = "Độ trong suốt",
-		["Current server session"] = "Phiên máy chủ hiện tại",
-		["No buttons in this group yet."] = "Nhóm này chưa có nút nào.",
-		["Layout edits are kept for this session only."] = "Thay đổi bố cục chỉ được giữ trong phiên hiện tại.",
-		["English"] = "Tiếng Việt",
-		["Vietnamese"] = "Tiếng Việt",
-		["Close"] = "Đóng",
-		["Minimize"] = "Thu nhỏ",
-		["Group name is required."] = "Bạn cần nhập tên nhóm.",
-		["Button name is required."] = "Bạn cần nhập tên nút.",
-	}
-	return words[text] or text
-end
-
-local language = "EN"
-local activeTab = "Combat"
-local isMobileLayout = false
-local selectedKey = Enum.KeyCode.RightShift
-local waitingForKey = false
-local isMinimized = false
-local menuScale = 1
-local panelTransparency = 0
-local fpsValue = 0
-local pingValue = "N/A"
-local frameTimeValue = 0
-local showHud = false
-local isOpen = false
-local nextId = 0
-local statusLabel
-local applyResponsiveLayout
-local renderTab
-
-local layout = {
-	Combat = {},
-	Moveset = {},
-	Visuals = {},
-	Misc = {},
+local Theme = {
+    Background = Color3.fromRGB(13, 11, 22),
+    Panel = Color3.fromRGB(21, 17, 34),
+    Panel2 = Color3.fromRGB(29, 23, 45),
+    Accent = Color3.fromRGB(155, 91, 255),
+    Accent2 = Color3.fromRGB(105, 65, 210),
+    Text = Color3.fromRGB(245, 241, 255),
+    SubText = Color3.fromRGB(155, 148, 175),
+    Border = Color3.fromRGB(65, 49, 91),
+    Success = Color3.fromRGB(95, 220, 150),
 }
 
-local screen = make("ScreenGui", {
-	Name = "KATO_HUB_TSB",
-	ResetOnSpawn = false,
-	IgnoreGuiInset = true,
-	DisplayOrder = 80,
-	Enabled = false,
-	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-}, playerGui)
-
-local shade = make("Frame", {
-	Name = "Shade",
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = Color3.new(0, 0, 0),
-	BackgroundTransparency = 0.42,
-	BorderSizePixel = 0,
-}, screen)
-
-local window = make("Frame", {
-	Name = "Window",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(880, 610),
-	BackgroundColor3 = C.Background,
-	BackgroundTransparency = panelTransparency,
-	BorderSizePixel = 0,
-	ClipsDescendants = true,
-}, shade)
-round(window, 17)
-outline(window, C.Border, 0.12)
-
--- Intro
-local TSB_UNIVERSE_ID = 3808081382
-local introOverlay = make("Frame", {
-	Name = "TSBIntroOverlay",
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = Color3.fromRGB(7, 6, 12),
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	Visible = false,
-	ZIndex = 50,
-}, shade)
-
-local introCard = make("Frame", {
-	Name = "IntroCard",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(420, 310),
-	BackgroundColor3 = C.Surface,
-	BackgroundTransparency = 1,
-	BorderSizePixel = 0,
-	ZIndex = 51,
-}, introOverlay)
-round(introCard, 18)
-outline(introCard, C.Purple, 0.25)
-
-local introBanner = make("ImageLabel", {
-	Name = "TSBGameThumbnail",
-	Position = UDim2.fromOffset(14, 14),
-	Size = UDim2.new(1, -28, 0, 148),
-	BackgroundColor3 = C.Surface3,
-	BackgroundTransparency = 0,
-	Image = "rbxthumb://type=GameThumbnail&id=" .. tostring(TSB_PLACE_ID) .. "&w=480&h=270",
-	ImageTransparency = 1,
-	ScaleType = Enum.ScaleType.Crop,
-	BorderSizePixel = 0,
-	ZIndex = 52,
-}, introCard)
-round(introBanner, 12)
-
-local introGameIcon = make("ImageLabel", {
-	Name = "TSBGameIcon",
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 112),
-	Size = UDim2.fromOffset(76, 76),
-	BackgroundColor3 = C.Surface2,
-	Image = "rbxthumb://type=GameIcon&id=" .. tostring(TSB_UNIVERSE_ID) .. "&w=150&h=150",
-	ImageTransparency = 1,
-	ScaleType = Enum.ScaleType.Crop,
-	BorderSizePixel = 0,
-	ZIndex = 54,
-}, introCard)
-round(introGameIcon, 16)
-outline(introGameIcon, C.PurpleLight, 0.1)
-
-local introTitle = make("TextLabel", {
-	Name = "IntroTitle",
-	Position = UDim2.fromOffset(12, 202),
-	Size = UDim2.new(1, -24, 0, 30),
-	BackgroundTransparency = 1,
-	Text = "THE STRONGEST BATTLEGROUNDS",
-	TextColor3 = C.Text,
-	TextTransparency = 1,
-	Font = Enum.Font.GothamBlack,
-	TextSize = 17,
-	TextWrapped = true,
-	ZIndex = 53,
-}, introCard)
-
-local introSubtitle = make("TextLabel", {
-	Name = "IntroSubtitle",
-	Position = UDim2.fromOffset(12, 236),
-	Size = UDim2.new(1, -24, 0, 20),
-	BackgroundTransparency = 1,
-	Text = "KATO HUB  •  GAME MENU",
-	TextColor3 = C.PurpleLight,
-	TextTransparency = 1,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 10,
-	ZIndex = 53,
-}, introCard)
-
-local introLoading = make("TextLabel", {
-	Name = "IntroLoading",
-	Position = UDim2.fromOffset(12, 270),
-	Size = UDim2.new(1, -24, 0, 18),
-	BackgroundTransparency = 1,
-	Text = "LOADING INTERFACE...",
-	TextColor3 = C.Muted,
-	TextTransparency = 1,
-	Font = Enum.Font.GothamMedium,
-	TextSize = 9,
-	ZIndex = 53,
-}, introCard)
-
-local function playIntro()
-	local camera = Workspace.CurrentCamera
-	local viewport = camera and camera.ViewportSize or Vector2.new(800, 600)
-	local cardWidth = math.max(270, math.min(420, viewport.X - 36))
-	introCard.Size = UDim2.fromOffset(cardWidth, 310)
-	introOverlay.Visible = true
-	introOverlay.BackgroundTransparency = 1
-	introCard.BackgroundTransparency = 1
-	introBanner.ImageTransparency = 1
-	introGameIcon.ImageTransparency = 1
-	introTitle.TextTransparency = 1
-	introSubtitle.TextTransparency = 1
-	introLoading.TextTransparency = 1
-
-	local fadeIn = TweenInfo.new(0.28, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(introOverlay, fadeIn, { BackgroundTransparency = 0.2 }):Play()
-	TweenService:Create(introCard, fadeIn, { BackgroundTransparency = 0 }):Play()
-	TweenService:Create(introBanner, fadeIn, { ImageTransparency = 0 }):Play()
-	TweenService:Create(introGameIcon, fadeIn, { ImageTransparency = 0 }):Play()
-	TweenService:Create(introTitle, fadeIn, { TextTransparency = 0 }):Play()
-	TweenService:Create(introSubtitle, fadeIn, { TextTransparency = 0 }):Play()
-	TweenService:Create(introLoading, fadeIn, { TextTransparency = 0 }):Play()
-
-	task.wait(1.35)
-	local fadeOut = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-	TweenService:Create(introOverlay, fadeOut, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(introCard, fadeOut, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(introBanner, fadeOut, { ImageTransparency = 1 }):Play()
-	TweenService:Create(introGameIcon, fadeOut, { ImageTransparency = 1 }):Play()
-	TweenService:Create(introTitle, fadeOut, { TextTransparency = 1 }):Play()
-	TweenService:Create(introSubtitle, fadeOut, { TextTransparency = 1 }):Play()
-	TweenService:Create(introLoading, fadeOut, { TextTransparency = 1 }):Play()
-	task.wait(0.32)
-	introOverlay.Visible = false
-end
-
--- Topbar
-local topbar = make("Frame", {
-	Name = "Topbar",
-	Size = UDim2.new(1, 0, 0, 60),
-	BackgroundColor3 = C.Surface,
-	BorderSizePixel = 0,
-}, window)
-
-local logo = make("Frame", {
-	Position = UDim2.fromOffset(14, 11),
-	Size = UDim2.fromOffset(38, 38),
-	BackgroundColor3 = C.Purple,
-	BorderSizePixel = 0,
-}, topbar)
-round(logo, 11)
-make("UIGradient", {
-	Color = ColorSequence.new(C.PurpleLight, C.Purple),
-	Rotation = 40,
-}, logo)
-local logoText = textLabel(logo, "K", 22, Color3.new(1, 1, 1), Enum.Font.GothamBlack)
-logoText.Size = UDim2.fromScale(1, 1)
-logoText.TextXAlignment = Enum.TextXAlignment.Center
-
-local title = textLabel(topbar, "KATO HUB  /  TSB", 15, C.Text, Enum.Font.GothamBold)
-title.Position = UDim2.fromOffset(62, 8)
-title.Size = UDim2.new(1, -170, 0, 22)
-local subtitle = textLabel(topbar, "THE STRONGEST BATTLEGROUNDS", 9, C.Muted, Enum.Font.GothamSemibold)
-subtitle.Position = UDim2.fromOffset(63, 31)
-subtitle.Size = UDim2.new(1, -170, 0, 15)
-
-local minimize = button(topbar, "—", 30, 30, false)
-minimize.Position = UDim2.new(1, -72, 0, 15)
-local close = button(topbar, "×", 30, 30, false)
-close.Position = UDim2.new(1, -38, 0, 15)
-close.TextColor3 = C.Red
-
-local body = make("Frame", {
-	Name = "Body",
-	Position = UDim2.fromOffset(0, 60),
-	Size = UDim2.new(1, 0, 1, -60),
-	BackgroundTransparency = 1,
-}, window)
-
-local sidebar = make("Frame", {
-	Name = "Sidebar",
-	Size = UDim2.new(0, 190, 1, 0),
-	BackgroundColor3 = C.Surface,
-	BorderSizePixel = 0,
-}, body)
-
-local sidebarCaption = textLabel(sidebar, "TSB MENU", 9, C.Muted, Enum.Font.GothamBold)
-sidebarCaption.Position = UDim2.fromOffset(15, 17)
-sidebarCaption.Size = UDim2.new(1, -28, 0, 18)
-
-local navHolder = make("Frame", {
-	Position = UDim2.fromOffset(10, 45),
-	Size = UDim2.new(1, -20, 0, 260),
-	BackgroundTransparency = 1,
-}, sidebar)
-local navLayout = make("UIListLayout", {
-	Padding = UDim.new(0, 7),
-	SortOrder = Enum.SortOrder.LayoutOrder,
-}, navHolder)
-
-local navButtons = {}
-local tabs = {
-	{ id = "Combat", label = "Combat", icon = "⚔" },
-	{ id = "Moveset", label = "Moveset", icon = "✦" },
-	{ id = "Visuals", label = "Visuals", icon = "◈" },
-	{ id = "Misc", label = "Misc", icon = "▤" },
-	{ id = "Settings", label = "Settings", icon = "⚙" },
+--// State
+local State = {
+    Language = "VI",
+    ActiveTab = "Combat",
+    IsOpen = false,
+    IsMinimized = false,
+    ShowHUD = true,
+    Scale = 1,
+    FPS = 0,
+    Ping = 0,
 }
 
-local content = make("Frame", {
-	Name = "Content",
-	Position = UDim2.new(0, 190, 0, 0),
-	Size = UDim2.new(1, -190, 1, 0),
-	BackgroundTransparency = 1,
-}, body)
+--// Cleanup
+local old = PlayerGui:FindFirstChild(CONFIG.GUI_NAME)
+if old then old:Destroy() end
 
+--// Helpers
+local function create(class, props, parent)
+    local obj = Instance.new(class)
+    for k, v in pairs(props or {}) do
+        obj[k] = v
+    end
+    obj.Parent = parent
+    return obj
+end
+
+local function corner(parent, r)
+    return create("UICorner", {CornerRadius = UDim.new(0, r or 8)}, parent)
+end
+
+local function stroke(parent, color)
+    return create("UIStroke", {
+        Color = color or Theme.Border,
+        Thickness = 1,
+        Transparency = 0.25
+    }, parent)
+end
+
+local function tween(obj, time, props)
+    return TweenService:Create(obj, TweenInfo.new(time, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props):Play()
+end
+
+local function makeLabel(parent, text, size, pos, textSize, color)
+    return create("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color or Theme.Text,
+        TextSize = textSize or 14,
+        Font = Enum.Font.GothamMedium,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        Size = size,
+        Position = pos,
+    }, parent)
+end
+
+local function makeButton(parent, text, callback)
+    local btn = create("TextButton", {
+        BackgroundColor3 = Theme.Panel2,
+        Text = text,
+        TextColor3 = Theme.Text,
+        TextSize = 13,
+        Font = Enum.Font.GothamMedium,
+        AutoButtonColor = false,
+        Size = UDim2.new(1, 0, 0, 38),
+    }, parent)
+    corner(btn, 7)
+    stroke(btn)
+
+    btn.MouseEnter:Connect(function()
+        tween(btn, 0.12, {BackgroundColor3 = Theme.Accent2})
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(btn, 0.12, {BackgroundColor3 = Theme.Panel2})
+    end)
+    btn.Activated:Connect(function()
+        if callback then callback() end
+    end)
+    return btn
+end
+
+--// Translations
+local Lang = {
+    VI = {
+        Combat = "Chiến đấu", Moveset = "Bộ kỹ năng", Visuals = "Giao diện",
+        Misc = "Khác", Settings = "Cài đặt", Ready = "Sẵn sàng",
+        Welcome = "Chào mừng đến KATO HUB TSB",
+        Close = "Đóng", Minimize = "Thu nhỏ",
+    },
+    EN = {
+        Combat = "Combat", Moveset = "Moveset", Visuals = "Visuals",
+        Misc = "Misc", Settings = "Settings", Ready = "Ready",
+        Welcome = "Welcome to KATO HUB TSB",
+        Close = "Close", Minimize = "Minimize",
+    }
+}
+
+local function tr(key)
+    return (Lang[State.Language] and Lang[State.Language][key]) or key
+end
+
+--// Screen
+local Screen = create("ScreenGui", {
+    Name = CONFIG.GUI_NAME,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    Enabled = false,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+}, PlayerGui)
+
+local Window = create("Frame", {
+    Name = "MainWindow",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromOffset(860, 580),
+    BackgroundColor3 = Theme.Background,
+    ClipsDescendants = true,
+}, Screen)
+corner(Window, 14)
+stroke(Window, Theme.Border)
+
+local WindowScale = create("UIScale", {Scale = 1}, Window)
+
+--// Topbar
+local Topbar = create("Frame", {
+    BackgroundColor3 = Theme.Panel,
+    Size = UDim2.new(1, 0, 0, 54),
+}, Window)
+
+create("Frame", {
+    BackgroundColor3 = Theme.Accent,
+    Position = UDim2.fromOffset(14, 10),
+    Size = UDim2.fromOffset(34, 34),
+}, Topbar)
+corner(Topbar:FindFirstChildOfClass("Frame"), 9)
+
+makeLabel(Topbar, "K", UDim2.fromOffset(34, 34), UDim2.fromOffset(14, 10), 18).TextXAlignment = Enum.TextXAlignment.Center
+makeLabel(Topbar, "KATO HUB  /  TSB", UDim2.fromOffset(220, 24), UDim2.fromOffset(58, 7), 15)
+makeLabel(Topbar, "THE STRONGEST BATTLEGROUNDS", UDim2.fromOffset(250, 16), UDim2.fromOffset(59, 30), 9, Theme.SubText)
+
+local StatusLabel = makeLabel(Topbar, "● " .. tr("Ready"), UDim2.fromOffset(110, 18), UDim2.new(1, -210, 0, 18), 11, Theme.Success)
+
+local MinimizeBtn = create("TextButton", {
+    BackgroundColor3 = Theme.Panel2,
+    Text = "—",
+    TextColor3 = Theme.Text,
+    TextSize = 18,
+    Position = UDim2.new(1, -78, 0, 12),
+    Size = UDim2.fromOffset(28, 28),
+    AutoButtonColor = false,
+}, Topbar)
+corner(MinimizeBtn, 7)
+
+local CloseBtn = create("TextButton", {
+    BackgroundColor3 = Color3.fromRGB(110, 40, 60),
+    Text = "×",
+    TextColor3 = Theme.Text,
+    TextSize = 20,
+    Position = UDim2.new(1, -42, 0, 12),
+    Size = UDim2.fromOffset(28, 28),
+    AutoButtonColor = false,
+}, Topbar)
+corner(CloseBtn, 7)
+
+--// Body
+local Body = create("Frame", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(0, 54),
+    Size = UDim2.new(1, 0, 1, -54),
+}, Window)
+
+local Sidebar = create("Frame", {
+    BackgroundColor3 = Theme.Panel,
+    Size = UDim2.new(0, 170, 1, 0),
+}, Body)
+
+create("UIListLayout", {
+    Padding = UDim.new(0, 6),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, Sidebar)
+create("UIPadding", {
+    PaddingTop = UDim.new(0, 12),
+    PaddingLeft = UDim.new(0, 10),
+    PaddingRight = UDim.new(0, 10),
+}, Sidebar)
+
+local Content = create("Frame", {
+    BackgroundTransparency = 1,
+    Position = UDim2.fromOffset(180, 0),
+    Size = UDim2.new(1, -190, 1, 0),
+}, Body)
+
+local ContentScroll = create("ScrollingFrame", {
+    BackgroundTransparency = 1,
+    Size = UDim2.fromScale(1, 1),
+    ScrollBarThickness = 3,
+    ScrollBarImageColor3 = Theme.Accent,
+    AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    CanvasSize = UDim2.new(),
+    BorderSizePixel = 0,
+}, Content)
+
+create("UIPadding", {
+    PaddingTop = UDim.new(0, 14),
+    PaddingLeft = UDim.new(0, 14),
+    PaddingRight = UDim.new(0, 14),
+    PaddingBottom = UDim.new(0, 14),
+}, ContentScroll)
+
+create("UIListLayout", {
+    Padding = UDim.new(0, 10),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+}, ContentScroll)
+
+--// Simple page content
 local function clearContent()
-	for _, child in ipairs(content:GetChildren()) do
-		child:Destroy()
-	end
+    for _, child in ipairs(ContentScroll:GetChildren()) do
+        if child:IsA("GuiObject") then
+            child:Destroy()
+        end
+    end
 end
 
-local function makePageHeader(parent, heading, description)
-	local h = textLabel(parent, translate(heading, language), 20, C.Text, Enum.Font.GothamBold)
-	h.Position = UDim2.fromOffset(0, 0)
-	h.Size = UDim2.new(1, 0, 0, 30)
-	local d = textLabel(parent, translate(description, language), 11, C.Muted)
-	d.Position = UDim2.fromOffset(0, 31)
-	d.Size = UDim2.new(1, 0, 0, 26)
-	return h, d
+local function pageTitle(title, desc)
+    local holder = create("Frame", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 50),
+    }, ContentScroll)
+
+    makeLabel(holder, title, UDim2.new(1, 0, 0, 26), UDim2.new(), 18)
+    makeLabel(holder, desc or "", UDim2.new(1, 0, 0, 20), UDim2.fromOffset(0, 28), 12, Theme.SubText)
 end
 
-local function createScroll(parent, y)
-	local scroll = make("ScrollingFrame", {
-		Position = UDim2.fromOffset(0, y),
-		Size = UDim2.new(1, 0, 1, -y),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
-		ScrollBarImageColor3 = C.Purple,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	}, parent)
-	make("UIPadding", {
-		PaddingRight = UDim.new(0, 8),
-		PaddingBottom = UDim.new(0, 14),
-	}, scroll)
-	local list = make("UIListLayout", {
-		Padding = UDim.new(0, 10),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, scroll)
-	return scroll, list
+local function infoCard(title, desc)
+    local card = create("Frame", {
+        BackgroundColor3 = Theme.Panel,
+        Size = UDim2.new(1, 0, 0, 70),
+    }, ContentScroll)
+    corner(card, 9)
+    stroke(card)
+
+    makeLabel(card, title, UDim2.new(1, -20, 0, 24), UDim2.fromOffset(12, 8), 14)
+    makeLabel(card, desc, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 34), 12, Theme.SubText)
 end
 
-local function card(parent, height)
-	local f = make("Frame", {
-		Size = UDim2.new(1, 0, 0, height),
-		BackgroundColor3 = C.Surface,
-		BorderSizePixel = 0,
-	}, parent)
-	round(f, 11)
-	outline(f, C.Border, 0.35)
-	return f
+local function renderTab(tab)
+    State.ActiveTab = tab
+    clearContent()
+
+    pageTitle("KATO HUB / " .. tr(tab), tr("Welcome"))
+
+    if tab == "Combat" then
+        infoCard("Combat Settings", "Tích hợp chức năng combat của bạn tại đây.")
+        infoCard("Auto Features", "Các nút chức năng sẽ được thêm sau.")
+    elseif tab == "Moveset" then
+        infoCard("Moveset", "Quản lý bộ kỹ năng.")
+    elseif tab == "Visuals" then
+        infoCard("Visuals", "Tùy chỉnh giao diện.")
+    elseif tab == "Misc" then
+        infoCard("Miscellaneous", "Các tiện ích khác.")
+    elseif tab == "Settings" then
+        infoCard("Language", "Hiện tại: " .. State.Language)
+        makeButton(ContentScroll, "Đổi ngôn ngữ (VI / EN)", function()
+            State.Language = State.Language == "VI" and "EN" or "VI"
+            renderTab("Settings")
+        end)
+        infoCard("Version", "KATO HUB TSB " .. CONFIG.VERSION)
+    end
 end
 
-local function updateNav()
-	for id, b in pairs(navButtons) do
-		local active = id == activeTab
-		b.BackgroundColor3 = active and C.Purple or C.Surface2
-		b.TextColor3 = active and Color3.new(1, 1, 1) or C.Muted
-		for _, tab in ipairs(tabs) do
-			if tab.id == id then
-				b.Text = isMobileLayout and tab.icon or (tab.icon .. "   " .. translate(tab.label, language))
-				b.TextXAlignment = isMobileLayout and Enum.TextXAlignment.Center or Enum.TextXAlignment.Left
-				b.TextSize = isMobileLayout and 17 or 11
-				break
-			end
-		end
-	end
+--// Navigation
+local Tabs = {"Combat", "Moveset", "Visuals", "Misc", "Settings"}
+local NavButtons = {}
+
+for i, tab in ipairs(Tabs) do
+    local btn = makeButton(Sidebar, tr(tab), function()
+        renderTab(tab)
+    end)
+    btn.LayoutOrder = i
+    NavButtons[tab] = btn
 end
-
-local function nextItemId()
-	nextId = nextId + 1
-	return nextId
-end
-
-local function renderBuilder(tabId)
-	clearContent()
-	local tabInfo = {
-		Combat = "Build your own Combat layout.",
-		Moveset = "Build your own Moveset layout.",
-		Visuals = "Build your own Visuals layout.",
-		Misc = "Build your own Misc layout.",
-	}
-
-	local page = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, content)
-	local heading = textLabel(page, translate(tabId == "Visuals" and "Visuals" or tabId, language), 20, C.Text, Enum.Font.GothamBold)
-	heading.Position = UDim2.fromOffset(0, 0)
-	heading.Size = UDim2.new(1, 0, 0, 30)
-	local desc = textLabel(page, translate(tabInfo[tabId], language), 11, C.Muted)
-	desc.Position = UDim2.fromOffset(0, 31)
-	desc.Size = UDim2.new(1, 0, 0, 25)
-
-	local builderCard = card(page, 66)
-	builderCard.Position = UDim2.fromOffset(0, 68)
-	local groupBox = make("TextBox", {
-		Position = UDim2.fromOffset(12, 15),
-		Size = UDim2.new(1, -126, 0, 34),
-		BackgroundColor3 = C.Surface2,
-		Text = "",
-		PlaceholderText = translate("Group name...", language),
-		PlaceholderColor3 = C.Muted,
-		TextColor3 = C.Text,
-		Font = Enum.Font.Gotham,
-		TextSize = 11,
-		ClearTextOnFocus = false,
-		BorderSizePixel = 0,
-	}, builderCard)
-	round(groupBox, 8)
-	local addGroup = button(builderCard, translate("Add group", language), 96, 34, true)
-	addGroup.Position = UDim2.new(1, -108, 0, 15)
-
-	local scroll = make("ScrollingFrame", {
-		Position = UDim2.fromOffset(0, 146),
-		Size = UDim2.new(1, 0, 1, -146),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
-		ScrollBarImageColor3 = C.Purple,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-	}, page)
-	make("UIPadding", {
-		PaddingRight = UDim.new(0, 8),
-		PaddingBottom = UDim.new(0, 14),
-	}, scroll)
-	local groupList = make("UIListLayout", {
-		Padding = UDim.new(0, 10),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, scroll)
-
-	local empty = textLabel(scroll, translate("No groups yet. Add a group to start building this tab.", language), 12, C.Muted)
-	empty.Size = UDim2.new(1, -8, 0, 52)
-	empty.TextXAlignment = Enum.TextXAlignment.Center
-	empty.LayoutOrder = 1
-
-	local function updateEmpty()
-		empty.Visible = #layout[tabId] == 0
-	end
-
-	local function renderGroups()
-		for _, child in ipairs(scroll:GetChildren()) do
-			if child \~= groupList and child \~= empty and not child:IsA("UIPadding") then
-				child:Destroy()
-			end
-		end
-
-		for groupIndex, groupData in ipairs(layout[tabId]) do
-			local groupCard = card(scroll, 100 + (#groupData.buttons * 40))
-			groupCard.LayoutOrder = groupIndex + 1
-
-			local groupName = textLabel(groupCard, groupData.name, 13, C.PurpleLight, Enum.Font.GothamBold)
-			groupName.Position = UDim2.fromOffset(12, 8)
-			groupName.Size = UDim2.new(1, -112, 0, 24)
-
-			local deleteGroup = button(groupCard, translate("Remove", language), 70, 25, false)
-			deleteGroup.Position = UDim2.new(1, -82, 0, 7)
-			deleteGroup.TextSize = 9
-			deleteGroup.TextColor3 = C.Red
-			deleteGroup.Activated:Connect(function()
-				for index, candidate in ipairs(layout[tabId]) do
-					if candidate.id == groupData.id then
-						table.remove(layout[tabId], index)
-						break
-					end
-				end
-				renderGroups()
-				updateEmpty()
-			end)
-
-			local buttonEntry = make("TextBox", {
-				Position = UDim2.fromOffset(12, 39),
-				Size = UDim2.new(1, -104, 0, 29),
-				BackgroundColor3 = C.Surface2,
-				Text = "",
-				PlaceholderText = translate("Button name...", language),
-				PlaceholderColor3 = C.Muted,
-				TextColor3 = C.Text,
-				Font = Enum.Font.Gotham,
-				TextSize = 10,
-				ClearTextOnFocus = false,
-				BorderSizePixel = 0,
-			}, groupCard)
-			round(buttonEntry, 7)
-			local addButton = button(groupCard, "+", 76, 29, true)
-			addButton.Position = UDim2.new(1, -88, 0, 39)
-			addButton.Activated:Connect(function()
-				local name = string.gsub(buttonEntry.Text, "^%s*(.-)%s*$", "%1")
-				if name == "" then
-					return
-				end
-				table.insert(groupData.buttons, { id = nextItemId(), name = name })
-				buttonEntry.Text = ""
-				renderGroups()
-				updateEmpty()
-			end)
-
-			local buttonY = 76
-			if #groupData.buttons == 0 then
-				local noButtons = textLabel(groupCard, "No buttons in this group yet.", 9, C.Muted)
-				noButtons.Position = UDim2.fromOffset(14, buttonY)
-				noButtons.Size = UDim2.new(1, -24, 0, 18)
-			else
-				for buttonIndex, buttonData in ipairs(groupData.buttons) do
-					local item = make("Frame", {
-						Position = UDim2.fromOffset(12, buttonY + ((buttonIndex - 1) * 34)),
-						Size = UDim2.new(1, -24, 0, 29),
-						BackgroundColor3 = C.Surface2,
-						BorderSizePixel = 0,
-					}, groupCard)
-					round(item, 7)
-					local nameButton = make("TextButton", {
-						Position = UDim2.fromOffset(8, 0),
-						Size = UDim2.new(1, -42, 1, 0),
-						BackgroundTransparency = 1,
-						Text = buttonData.name,
-						TextColor3 = C.Text,
-						Font = Enum.Font.GothamSemibold,
-						TextSize = 10,
-						TextXAlignment = Enum.TextXAlignment.Left,
-						AutoButtonColor = false,
-					}, item)
-					nameButton.Activated:Connect(function()
-						statusLabel.Text = translate("This is a custom placeholder button.", language) .. "  •  " .. buttonData.name
-					end)
-					local removeButton = make("TextButton", {
-						AnchorPoint = Vector2.new(1, 0.5),
-						Position = UDim2.new(1, -5, 0.5, 0),
-						Size = UDim2.fromOffset(26, 24),
-						BackgroundColor3 = C.Surface3,
-						Text = "×",
-						TextColor3 = C.Red,
-						Font = Enum.Font.GothamBold,
-						TextSize = 15,
-						BorderSizePixel = 0,
-					}, item)
-					round(removeButton, 6)
-					removeButton.Activated:Connect(function()
-						for index, candidate in ipairs(groupData.buttons) do
-							if candidate.id == buttonData.id then
-								table.remove(groupData.buttons, index)
-								break
-							end
-						end
-						renderGroups()
-						updateEmpty()
-					end)
-				end
-			end
-		end
-		updateEmpty()
-	end
-
-	addGroup.Activated:Connect(function()
-		local name = string.gsub(groupBox.Text, "^%s*(.-)%s*$", "%1")
-		if name == "" then
-			statusLabel.Text = translate("Group name is required.", language)
-			return
-		end
-		table.insert(layout[tabId], { id = nextItemId(), name = name, buttons = {} })
-		groupBox.Text = ""
-		renderGroups()
-		statusLabel.Text = translate("Buttons are placeholders. Add your own allowed UI actions later.", language)
-	end)
-
-	renderGroups()
-end
-
-local function getPing()
-	local ok, result = pcall(function()
-		local dataPing = Stats.Network.ServerStatsItem["Data Ping"]
-		return dataPing:GetValueString()
-	end)
-	if ok and result then
-		return tostring(result)
-	end
-	return "N/A"
-end
-
-local function formatUptime(seconds)
-	seconds = math.max(0, math.floor(seconds))
-	local hours = math.floor(seconds / 3600)
-	local minutes = math.floor((seconds % 3600) / 60)
-	local secs = seconds % 60
-	return string.format("%02d:%02d:%02d", hours, minutes, secs)
-end
-
-local fpsHud = make("Frame", {
-	Name = "PerformanceHUD",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, -14, 0, 14),
-	Size = UDim2.fromOffset(154, 48),
-	BackgroundColor3 = C.Surface,
-	BackgroundTransparency = 0.08,
-	Visible = false,
-	BorderSizePixel = 0,
-	ZIndex = 30,
-}, screen)
-round(fpsHud, 9)
-outline(fpsHud, C.Purple, 0.2)
-local hudText = textLabel(fpsHud, "FPS  --   PING  --", 10, C.Text, Enum.Font.GothamBold)
-hudText.Position = UDim2.fromOffset(9, 5)
-hudText.Size = UDim2.new(1, -18, 1, -10)
-hudText.TextXAlignment = Enum.TextXAlignment.Center
-hudText.ZIndex = 31
-
-local function makeSettingSection(parent, heading, description, height)
-	local section = card(parent, height)
-	local h = textLabel(section, translate(heading, language), 13, C.PurpleLight, Enum.Font.GothamBold)
-	h.Position = UDim2.fromOffset(13, 8)
-	h.Size = UDim2.new(1, -26, 0, 22)
-	if description then
-		local d = textLabel(section, translate(description, language), 10, C.Muted)
-		d.Position = UDim2.fromOffset(13, 29)
-		d.Size = UDim2.new(1, -26, 0, 22)
-	end
-	return section
-end
-
-local function renderSettings()
-	clearContent()
-	local page = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1 }, content)
-	makePageHeader(page, "Settings", "KATO HUB TSB interface settings and live information.")
-	local scroll, list = createScroll(page, 66)
-
-	local performance = makeSettingSection(scroll, "Performance", "Live client performance readings", 132)
-	performance.LayoutOrder = 1
-	local fpsLabel = textLabel(performance, "FPS: --", 11, C.Text, Enum.Font.GothamSemibold)
-	fpsLabel.Position = UDim2.fromOffset(13, 56)
-	fpsLabel.Size = UDim2.new(0.32, -10, 0, 22)
-	local pingLabel = textLabel(performance, "Ping: --", 11, C.Text, Enum.Font.GothamSemibold)
-	pingLabel.Position = UDim2.new(0.34, 0, 0, 56)
-	pingLabel.Size = UDim2.new(0.30, -8, 0, 22)
-	local frameLabel = textLabel(performance, translate("Frame time", language) .. ": --", 11, C.Text, Enum.Font.GothamSemibold)
-	frameLabel.Position = UDim2.new(0.66, 0, 0, 56)
-	frameLabel.Size = UDim2.new(0.32, -10, 0, 22)
-	local hudButton = button(performance, translate(showHud and "Hide performance HUD" or "Show performance HUD", language), 172, 27, true)
-	hudButton.Position = UDim2.fromOffset(13, 91)
-	hudButton.Activated:Connect(function()
-		showHud = not showHud
-		fpsHud.Visible = showHud
-		hudButton.Text = translate(showHud and "Hide performance HUD" or "Show performance HUD", language)
-	end)
-
-	local server = makeSettingSection(scroll, "Server information", "Current Roblox session details", 198)
-	server.LayoutOrder = 2
-	local placeLabel = textLabel(server, translate("Place ID", language) .. ": " .. tostring(game.PlaceId), 10, C.Text)
-	placeLabel.Position = UDim2.fromOffset(13, 54)
-	placeLabel.Size = UDim2.new(1, -26, 0, 19)
-	local playerCount = textLabel(server, translate("Players in this server", language) .. ": --", 10, C.Text)
-	playerCount.Position = UDim2.fromOffset(13, 75)
-	playerCount.Size = UDim2.new(1, -26, 0, 19)
-	local uptime = textLabel(server, translate("Session uptime", language) .. ": --", 10, C.Text)
-	uptime.Position = UDim2.fromOffset(13, 96)
-	uptime.Size = UDim2.new(1, -26, 0, 19)
-	local region = textLabel(server, translate("Region", language) .. ": " .. translate("Not exposed to LocalScripts", language), 10, C.Muted)
-	region.Position = UDim2.fromOffset(13, 117)
-	region.Size = UDim2.new(1, -26, 0, 19)
-	local jobBox = make("TextBox", {
-		Position = UDim2.fromOffset(13, 143),
-		Size = UDim2.new(1, -26, 0, 25),
-		BackgroundColor3 = C.Surface2,
-		Text = game.JobId \~= "" and game.JobId or "Studio session (no Job ID)",
-		TextColor3 = C.Text,
-		PlaceholderColor3 = C.Muted,
-		Font = Enum.Font.Code,
-		TextSize = 9,
-		ClearTextOnFocus = false,
-		BorderSizePixel = 0,
-	}, server)
-	round(jobBox, 6)
-	local serverNote = textLabel(server, translate("Current KATO HUB session — not the external TSB server", language), 8, C.Amber)
-	serverNote.Position = UDim2.fromOffset(13, 171)
-	serverNote.Size = UDim2.new(1, -26, 0, 18)
-
-	local interface = makeSettingSection(scroll, "Interface", "Adjust the TSB window", 142)
-	interface.LayoutOrder = 3
-	local scaleLabel = textLabel(interface, translate("Window size", language) .. ": " .. tostring(math.floor(menuScale * 100)) .. "%", 10, C.Text)
-	scaleLabel.Position = UDim2.fromOffset(13, 54)
-	scaleLabel.Size = UDim2.fromOffset(130, 24)
-	local smaller = button(interface, "−", 30, 27, false)
-	smaller.Position = UDim2.new(1, -112, 0, 52)
-	local larger = button(interface, "+", 30, 27, false)
-	larger.Position = UDim2.new(1, -76, 0, 52)
-	local transparencyButton = button(interface, translate("Transparency", language) .. " " .. tostring(math.floor(panelTransparency * 100)) .. "%", 138, 27, false)
-	transparencyButton.Position = UDim2.fromOffset(13, 94)
-	smaller.Activated:Connect(function()
-		menuScale = math.max(0.82, math.floor((menuScale - 0.05) * 100 + 0.5) / 100)
-		scaleLabel.Text = translate("Window size", language) .. ": " .. tostring(math.floor(menuScale * 100)) .. "%"
-		applyResponsiveLayout()
-	end)
-	larger.Activated:Connect(function()
-		menuScale = math.min(1.12, math.floor((menuScale + 0.05) * 100 + 0.5) / 100)
-		scaleLabel.Text = translate("Window size", language) .. ": " .. tostring(math.floor(menuScale * 100)) .. "%"
-		applyResponsiveLayout()
-	end)
-	transparencyButton.Activated:Connect(function()
-		panelTransparency = panelTransparency >= 0.30 and 0 or panelTransparency + 0.10
-		if panelTransparency > 0.30 then
-			panelTransparency = 0
-		end
-		window.BackgroundTransparency = panelTransparency
-		transparencyButton.Text = translate("Transparency", language) .. " " .. tostring(math.floor(panelTransparency * 100)) .. "%"
-	end)
-
-	local languageSection = makeSettingSection(scroll, "Language", "English is the default language", 74)
-	languageSection.LayoutOrder = 4
-	local languageButton = button(languageSection, language == "EN" and "English  ▾" or "Tiếng Việt  ▾", 132, 30, true)
-	languageButton.Position = UDim2.fromOffset(13, 36)
-	languageButton.Activated:Connect(function()
-		language = language == "EN" and "VI" or "EN"
-		renderTab(activeTab)
-	end)
-
-	local controls = makeSettingSection(scroll, "Menu toggle key", "Press the button, then press a keyboard key", 86)
-	controls.LayoutOrder = 5
-	local keyButton = button(controls, waitingForKey and translate("Press a key...", language) or selectedKey.Name, 150, 30, false)
-	keyButton.Position = UDim2.fromOffset(13, 42)
-	keyButton.Activated:Connect(function()
-		waitingForKey = true
-		keyButton.Text = translate("Press a key...", language)
-	end)
-
-	local about = makeSettingSection(scroll, "About", "KATO HUB TSB interface", 66)
-	about.LayoutOrder = 6
-	local aboutText = textLabel(about, "TSB Place ID: " .. tostring(TSB_PLACE_ID) .. "   •   UI build 1.0", 9, C.Muted)
-	aboutText.Position = UDim2.fromOffset(13, 36)
-	aboutText.Size = UDim2.new(1, -26, 0, 18)
-
-	local note = textLabel(scroll, translate("Layout edits are kept for this session only.", language), 9, C.Muted)
-	note.LayoutOrder = 7
-	note.Size = UDim2.new(1, -10, 0, 22)
-
-	task.spawn(function()
-		while page.Parent and screen.Parent do
-			fpsLabel.Text = "FPS: " .. tostring(fpsValue)
-			pingLabel.Text = "Ping: " .. tostring(pingValue)
-			frameLabel.Text = translate("Frame time", language) .. string.format(": %.1f ms", frameTimeValue)
-			playerCount.Text = translate("Players in this server", language) .. ": " .. tostring(#Players:GetPlayers())
-			uptime.Text = translate("Session uptime", language) .. ": " .. formatUptime(Workspace.DistributedGameTime)
-			task.wait(0.5)
-		end
-	end)
-end
-
-renderTab = function(tabId)
-	activeTab = tabId
-	updateNav()
-	if tabId == "Settings" then
-		renderSettings()
-	else
-		renderBuilder(tabId)
-	end
-end
-
-for index, tab in ipairs(tabs) do
-	local b = make("TextButton", {
-		Name = tab.id .. "Nav",
-		Size = UDim2.new(1, 0, 0, 42),
-		BackgroundColor3 = C.Surface2,
-		Text = tab.icon .. "   " .. translate(tab.label, language),
-		TextColor3 = C.Muted,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		AutoButtonColor = true,
-		BorderSizePixel = 0,
-		LayoutOrder = index,
-	}, navHolder)
-	round(b, 8)
-	navButtons[tab.id] = b
-	b.Activated:Connect(function()
-		renderTab(tab.id)
-	end)
-end
-
-statusLabel = textLabel(body, "Ready", 9, C.Muted)
-statusLabel.AnchorPoint = Vector2.new(0, 1)
-statusLabel.Position = UDim2.new(0, 12, 1, -5)
-statusLabel.Size = UDim2.new(1, -24, 0, 17)
-statusLabel.TextTruncate = Enum.TextTruncate.AtEnd
-
-applyResponsiveLayout = function()
-	local camera = Workspace.CurrentCamera
-	local viewport = camera and camera.ViewportSize or Vector2.new(1000, 700)
-	local mobile = viewport.X < 720
-	local width
-	local height
-	if mobile then
-		width = math.max(260, math.min(viewport.X - 24, 450))
-		height = math.max(330, math.min(viewport.Y - 90, 680))
-	else
-		width = math.min(900, viewport.X - 70)
-		height = math.min(620, viewport.Y - 70)
-		width = math.max(600, width)
-		height = math.max(420, height)
-	end
-	width = math.floor(width * menuScale)
-	height = math.floor(height * menuScale)
-	window.Size = UDim2.fromOffset(width, height)
-	topbar.Size = UDim2.new(1, 0, 0, mobile and 52 or 60)
-	body.Position = UDim2.fromOffset(0, mobile and 52 or 60)
-	body.Size = UDim2.new(1, 0, 1, -(mobile and 52 or 60))
-	isMobileLayout = mobile
-	if mobile then
-		sidebar.Size = UDim2.new(0, 48, 1, 0)
-		sidebarCaption.Visible = false
-		navHolder.Position = UDim2.fromOffset(5, 12)
-		navHolder.Size = UDim2.new(1, -10, 0, 250)
-		content.Position = UDim2.new(0, 48, 0, 0)
-		content.Size = UDim2.new(1, -48, 1, 0)
-		title.TextSize = 13
-		subtitle.Visible = false
-		for _, tab in ipairs(tabs) do
-			local b = navButtons[tab.id]
-			b.Text = tab.icon
-			b.TextXAlignment = Enum.TextXAlignment.Center
-			b.TextSize = 17
-		end
-	else
-		sidebar.Size = UDim2.new(0, 190, 1, 0)
-		sidebarCaption.Visible = true
-		navHolder.Position = UDim2.fromOffset(10, 45)
-		navHolder.Size = UDim2.new(1, -20, 0, 260)
-		content.Position = UDim2.new(0, 190, 0, 0)
-		content.Size = UDim2.new(1, -190, 1, 0)
-		title.TextSize = 15
-		subtitle.Visible = true
-		for _, tab in ipairs(tabs) do
-			local b = navButtons[tab.id]
-			b.Text = tab.icon .. "   " .. translate(tab.label, language)
-			b.TextXAlignment = Enum.TextXAlignment.Left
-			b.TextSize = 11
-		end
-	end
-	updateNav()
-	renderTab(activeTab)
-end
-
-local function bindViewport(camera)
-	if camera then
-		camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-			if screen.Enabled then
-				applyResponsiveLayout()
-			end
-		end)
-	end
-end
-bindViewport(Workspace.CurrentCamera)
-Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	bindViewport(Workspace.CurrentCamera)
-	if screen.Enabled then
-		applyResponsiveLayout()
-	end
-end)
-
--- Drag
-local dragging = false
-local dragStart = nil
-local startPos = nil
-
-topbar.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1
-		or input.UserInputType == Enum.UserInputType.Touch then
-		dragging = true
-		dragStart = input.Position
-		startPos = window.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-		local delta = input.Position - dragStart
-		window.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
-end)
-
-minimize.Activated:Connect(function()
-	isMinimized = not isMinimized
-	body.Visible = not isMinimized
-	if isMinimized then
-		window.Size = UDim2.new(window.Size.X.Scale, window.Size.X.Offset, 0, 60)
-		minimize.Text = "+"
-	else
-		minimize.Text = "—"
-		applyResponsiveLayout()
-	end
-end)
-
-local function closeToMain()
-	screen.Enabled = false
-	isOpen = false
-	local mainGui = playerGui:FindFirstChild(MAIN_GUI_NAME)
-	if mainGui and mainGui:IsA("ScreenGui") then
-		mainGui.Enabled = true
-	end
-end
-
-close.Activated:Connect(closeToMain)
-
-openTSB = function()
-	local mainGui = playerGui:FindFirstChild(MAIN_GUI_NAME)
-	if mainGui and mainGui:IsA("ScreenGui") then
-		mainGui.Enabled = false
-	end
-	isOpen = true
-	isMinimized = false
-	body.Visible = true
-	minimize.Text = "—"
-	screen.Enabled = true
-	applyResponsiveLayout()
-	window.Visible = false
-	window.Position = UDim2.fromScale(0.5, 0.5)
-	window.BackgroundTransparency = panelTransparency
-
-	task.spawn(function()
-		playIntro()
-		if not screen.Enabled or not isOpen then
-			return
-		end
-		window.Visible = true
-		applyResponsiveLayout()
-		local targetWidth = window.Size.X.Offset
-		local targetHeight = window.Size.Y.Offset
-		window.Size = UDim2.fromOffset(targetWidth * 0.96, targetHeight * 0.96)
-		TweenService:Create(window, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.fromOffset(targetWidth, targetHeight),
-		}):Play()
-	end)
-end
-
-if pendingOpen then
-	pendingOpen = false
-	task.defer(openTSB)
-end
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if waitingForKey then
-		if input.UserInputType == Enum.UserInputType.Keyboard then
-			selectedKey = input.KeyCode
-			waitingForKey = false
-			if activeTab == "Settings" and screen.Enabled then
-				renderTab("Settings")
-			end
-		end
-		return
-	end
-
-	if gameProcessed or input.UserInputType \~= Enum.UserInputType.Keyboard then
-		return
-	end
-
-	if input.KeyCode == selectedKey then
-		if isOpen then
-			screen.Enabled = not screen.Enabled
-		end
-	end
-end)
-
-local elapsed = 0
-local frameCount = 0
-RunService.RenderStepped:Connect(function(dt)
-	elapsed = elapsed + dt
-	frameCount = frameCount + 1
-	frameTimeValue = dt * 1000
-	if elapsed >= 1 then
-		fpsValue = math.floor(frameCount / elapsed + 0.5)
-		pingValue = getPing()
-		hudText.Text = "FPS  " .. tostring(fpsValue) .. "     PING  " .. tostring(pingValue)
-		frameCount = 0
-		elapsed = 0
-	end
-end)
 
 renderTab("Combat")
-print("[KATO HUB TSB] TSB menu loaded successfully.")
+
+--// Minimize / Close
+MinimizeBtn.Activated:Connect(function()
+    State.IsMinimized = not State.IsMinimized
+    Body.Visible = not State.IsMinimized
+    if State.IsMinimized then
+        tween(Window, 0.2, {Size = UDim2.new(Window.Size.X.Scale, Window.Size.X.Offset, 0, 54)})
+    else
+        tween(Window, 0.2, {Size = UDim2.fromOffset(860, 580)})
+    end
+end)
+
+CloseBtn.Activated:Connect(function()
+    Screen:Destroy()
+    -- Load lại Main Menu
+    pcall(function()
+        loadstring(game:HttpGet(CONFIG.MAIN_MENU_URL))()
+    end)
+end)
+
+--// Toggle Key
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.KeyCode == CONFIG.TOGGLE_KEY then
+        Screen.Enabled = not Screen.Enabled
+    end
+end)
+
+--// Performance
+local frameCount, elapsed = 0, 0
+RunService.RenderStepped:Connect(function(dt)
+    if not Screen.Enabled then return end
+    frameCount += 1
+    elapsed += dt
+    if elapsed >= 1 then
+        State.FPS = math.floor(frameCount / elapsed)
+        frameCount = 0
+        elapsed = 0
+
+        pcall(function()
+            State.Ping = math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+        end)
+
+        StatusLabel.Text = "● FPS " .. State.FPS .. " | Ping " .. State.Ping
+    end
+end)
+
+--// Auto Open (quan trọng cho loadstring)
+task.spawn(function()
+    task.wait(0.1)
+
+    -- Ẩn Main Hub nếu còn
+    local main = PlayerGui:FindFirstChild("KATO_HUB_2_0") or PlayerGui:FindFirstChild("KATO_HUB_MAIN")
+    if main then
+        main.Enabled = false
+    end
+
+    Screen.Enabled = true
+    State.IsOpen = true
+
+    -- Animation mở
+    Window.Size = UDim2.fromOffset(820, 540)
+    Window.BackgroundTransparency = 0.3
+    tween(Window, 0.3, {
+        Size = UDim2.fromOffset(860, 580),
+        BackgroundTransparency = 0
+    })
+end)
+
+print("[KATO HUB TSB] 2.0 Optimized loaded")
