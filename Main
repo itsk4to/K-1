@@ -33,7 +33,7 @@ local GAMES = {
 		Description = "Open the TSB interface.",
 		Image = "rbxthumb://type=GameIcon&id=3808081382&w=512&h=512",
 		Enabled = true,
-		Url = "https://raw.githubusercontent.com/itsk4to/K-1/main/Game%20Menu%201"
+		Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game1"
 	},
 	{
 		Id = "MORE",
