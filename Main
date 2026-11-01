@@ -1,11 +1,10 @@
 --[[
-KATO HUB - MAIN MENU (Executor Version)
-Ấn TSB → loadstring Game Menu 1 từ GitHub
+KATO HUB - MAIN MENU (Executor Optimized)
+Ấn TSB → loadstring Game Menu từ GitHub
 ]]
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
@@ -21,7 +20,6 @@ local COLORS = {
 	Text = Color3.fromRGB(245, 242, 252),
 	Muted = Color3.fromRGB(160, 153, 176),
 	Border = Color3.fromRGB(66, 58, 86),
-	Green = Color3.fromRGB(91, 210, 153),
 }
 
 local GAMES = {
@@ -31,9 +29,10 @@ local GAMES = {
 		ShortName = "TSB",
 		Category = "GAME MENU 1",
 		Description = "Open the TSB interface.",
+		-- Dùng GameIcon (Universe ID) cho đẹp
 		Image = "rbxthumb://type=GameIcon&id=3808081382&w=512&h=512",
 		Enabled = true,
-		Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game1"
+		Url = "https://raw.githubusercontent.com/itsk4to/K-1/main/Game1"
 	},
 	{
 		Id = "MORE",
@@ -46,26 +45,33 @@ local GAMES = {
 	},
 }
 
+-- Xóa GUI cũ
 local old = playerGui:FindFirstChild("KATO_HUB_MAIN")
-if old then old:Destroy() end
+if old then
+	old:Destroy()
+end
 
 local function create(class, props, parent)
 	local obj = Instance.new(class)
-	for k, v in pairs(props or {}) do obj[k] = v end
+	for k, v in pairs(props or {}) do
+		obj[k] = v
+	end
 	obj.Parent = parent
 	return obj
 end
 
-local function corner(p, r)
-	return create("UICorner", {CornerRadius = UDim.new(0, r or 12)}, p)
+local function corner(parent, radius)
+	return create("UICorner", {
+		CornerRadius = UDim.new(0, radius or 12)
+	}, parent)
 end
 
-local function stroke(p, color, t)
+local function stroke(parent, color, transparency)
 	return create("UIStroke", {
 		Color = color or COLORS.Border,
-		Transparency = t or 0,
+		Transparency = transparency or 0,
 		Thickness = 1
-	}, p)
+	}, parent)
 end
 
 local screen = create("ScreenGui", {
@@ -78,7 +84,7 @@ local screen = create("ScreenGui", {
 local overlay = create("Frame", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundColor3 = Color3.new(0, 0, 0),
-	BackgroundTransparency = 0.4,
+	BackgroundTransparency = 0.42,
 	BorderSizePixel = 0,
 }, screen)
 
@@ -92,7 +98,7 @@ local window = create("Frame", {
 	ClipsDescendants = true,
 }, overlay)
 corner(window, 16)
-stroke(window, COLORS.Border, 0.2)
+stroke(window, COLORS.Border, 0.18)
 
 -- Topbar
 local topbar = create("Frame", {
@@ -108,18 +114,19 @@ local logo = create("Frame", {
 	BorderSizePixel = 0,
 }, topbar)
 corner(logo, 10)
+
 create("TextLabel", {
 	Size = UDim2.fromScale(1, 1),
 	BackgroundTransparency = 1,
 	Text = "K",
-	TextColor3 = Color3.new(1,1,1),
+	TextColor3 = Color3.new(1, 1, 1),
 	Font = Enum.Font.GothamBold,
 	TextSize = 20,
 }, logo)
 
 create("TextLabel", {
 	Position = UDim2.fromOffset(62, 10),
-	Size = UDim2.fromOffset(200, 22),
+	Size = UDim2.fromOffset(220, 22),
 	BackgroundTransparency = 1,
 	Text = "KATO HUB",
 	TextColor3 = COLORS.Text,
@@ -130,7 +137,7 @@ create("TextLabel", {
 
 create("TextLabel", {
 	Position = UDim2.fromOffset(63, 32),
-	Size = UDim2.fromOffset(200, 16),
+	Size = UDim2.fromOffset(220, 16),
 	BackgroundTransparency = 1,
 	Text = "UNIVERSAL GAME HUB",
 	TextColor3 = COLORS.Muted,
@@ -152,6 +159,7 @@ local closeBtn = create("TextButton", {
 	BorderSizePixel = 0,
 }, topbar)
 corner(closeBtn, 8)
+
 closeBtn.Activated:Connect(function()
 	screen:Destroy()
 end)
@@ -195,28 +203,32 @@ create("TextLabel", {
 	TextXAlignment = Enum.TextXAlignment.Left,
 }, scroll)
 
--- Game Card
+-- Card
 local function makeCard(game)
 	local card = create("Frame", {
-		Size = UDim2.new(1, 0, 0, 110),
+		Size = UDim2.new(1, 0, 0, 112),
 		BackgroundColor3 = COLORS.Surface2,
 		BorderSizePixel = 0,
 	}, scroll)
-	corner(card, 12)
-	stroke(card, COLORS.Border, 0.3)
+	corner(card, 13)
+	stroke(card, COLORS.Border, 0.28)
 
+	-- Ảnh game
 	if game.Image and game.Image \~= "" then
-		create("ImageLabel", {
+		local img = create("ImageLabel", {
 			Position = UDim2.fromOffset(12, 12),
-			Size = UDim2.fromOffset(86, 86),
-			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(88, 88),
+			BackgroundColor3 = COLORS.Surface3,
+			BackgroundTransparency = 0,
 			Image = game.Image,
 			ScaleType = Enum.ScaleType.Crop,
+			BorderSizePixel = 0,
 		}, card)
+		corner(img, 10)
 	else
 		local icon = create("Frame", {
 			Position = UDim2.fromOffset(12, 12),
-			Size = UDim2.fromOffset(86, 86),
+			Size = UDim2.fromOffset(88, 88),
 			BackgroundColor3 = COLORS.Purple,
 			BorderSizePixel = 0,
 		}, card)
@@ -225,14 +237,14 @@ local function makeCard(game)
 			Size = UDim2.fromScale(1, 1),
 			BackgroundTransparency = 1,
 			Text = game.ShortName,
-			TextColor3 = Color3.new(1,1,1),
+			TextColor3 = Color3.new(1, 1, 1),
 			Font = Enum.Font.GothamBlack,
 			TextSize = 22,
 		}, icon)
 	end
 
 	create("TextLabel", {
-		Position = UDim2.fromOffset(112, 14),
+		Position = UDim2.fromOffset(114, 14),
 		Size = UDim2.new(1, -130, 0, 20),
 		BackgroundTransparency = 1,
 		Text = game.Name,
@@ -243,7 +255,7 @@ local function makeCard(game)
 	}, card)
 
 	create("TextLabel", {
-		Position = UDim2.fromOffset(112, 36),
+		Position = UDim2.fromOffset(114, 36),
 		Size = UDim2.new(1, -130, 0, 18),
 		BackgroundTransparency = 1,
 		Text = game.Description,
@@ -254,11 +266,11 @@ local function makeCard(game)
 	}, card)
 
 	local btn = create("TextButton", {
-		Position = UDim2.fromOffset(112, 68),
-		Size = UDim2.fromOffset(130, 28),
+		Position = UDim2.fromOffset(114, 70),
+		Size = UDim2.fromOffset(132, 28),
 		BackgroundColor3 = game.Enabled and COLORS.Purple or COLORS.Surface3,
 		Text = game.Enabled and "OPEN MENU →" or "COMING SOON",
-		TextColor3 = game.Enabled and Color3.new(1,1,1) or COLORS.Muted,
+		TextColor3 = game.Enabled and Color3.new(1, 1, 1) or COLORS.Muted,
 		Font = Enum.Font.GothamBold,
 		TextSize = 11,
 		AutoButtonColor = false,
@@ -269,10 +281,15 @@ local function makeCard(game)
 
 	if game.Enabled then
 		btn.MouseEnter:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = COLORS.PurpleLight}):Play()
+			TweenService:Create(btn, TweenInfo.new(0.13), {
+				BackgroundColor3 = COLORS.PurpleLight
+			}):Play()
 		end)
+
 		btn.MouseLeave:Connect(function()
-			TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = COLORS.Purple}):Play()
+			TweenService:Create(btn, TweenInfo.new(0.13), {
+				BackgroundColor3 = COLORS.Purple
+			}):Play()
 		end)
 
 		btn.Activated:Connect(function()
@@ -290,16 +307,17 @@ local function makeCard(game)
 	end
 end
 
-for _, g in ipairs(GAMES) do
-	makeCard(g)
+for _, game in ipairs(GAMES) do
+	makeCard(game)
 end
 
--- Keybind
-UserInputService.InputBegan:Connect(function(input, gpe)
-	if gpe then return end
+-- Phím tắt
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
 	if input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.RightShift then
 		screen.Enabled = not screen.Enabled
 	end
 end)
 
-print("[KATO HUB] Main Menu loaded (Executor)")
+print("[KATO HUB] Main Menu loaded successfully")
