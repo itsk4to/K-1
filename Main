@@ -58,13 +58,13 @@ local GAMES = {
     {
         Id = "MTC",
         Name = "Multicrew Tank Combat",
-        NameVi = "",
+        NameVi = "Chiến đấu xe tăng với kíp lái nhiều người",
         ShortName = "MTC",
         Category = "Game2",
         CategoryVi = "Game2",
         Description = "Open the MTC interface.",
         DescriptionVi = "Mở giao diện MTC.",
-        Image = "",
+        Image = "rbxthumb://type=GameIcon&id=95721658376580&w=512&h=512",
         Enabled = true,
         Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game2"
     },
