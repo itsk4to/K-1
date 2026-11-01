@@ -627,7 +627,7 @@ create("TextLabel", {
 local settingsPage = makePage("Settings")
 pageTitle(settingsPage, "Settings", "KATO HUB interface preferences.")
 local settingsPanel = create("Frame", {
-    Size = UDim2.new(1, 0, 0, 116),
+    Size = UDim2.new(1, 0, 0, 154),
     BackgroundColor3 = COLORS.Surface2,
     BorderSizePixel = 0,
 }, settingsPage)
@@ -688,6 +688,30 @@ create("TextLabel", {
     TextSize = 11,
     TextXAlignment = Enum.TextXAlignment.Right,
 }, settingsPanel)
+local languageLabel = create("TextLabel", {
+    Position = UDim2.fromOffset(0, 87),
+    Size = UDim2.new(1, -112, 0, 22),
+    BackgroundTransparency = 1,
+    Text = "Language",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.Gotham,
+    TextSize = 11,
+    TextXAlignment = Enum.TextXAlignment.Left,
+}, settingsPanel)
+local languageButton = create("TextButton", {
+    Name = "LanguageToggle",
+    AnchorPoint = Vector2.new(1, 0),
+    Position = UDim2.new(1, 0, 0, 84),
+    Size = UDim2.fromOffset(92, 28),
+    BackgroundColor3 = COLORS.Purple,
+    Text = "ENGLISH  ▾",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBold,
+    TextSize = 10,
+    AutoButtonColor = true,
+    BorderSizePixel = 0,
+}, settingsPanel)
+corner(languageButton, 8)
 
 -- Navigation
 local NAV_ITEMS = {
@@ -1035,6 +1059,80 @@ local introSubtitle = create("TextLabel", {
     TextSize = 10,
     ZIndex = 101,
 }, intro)
+
+-- English is the default language. Users can switch to Vietnamese in Settings.
+local currentLanguage = "EN"
+
+local TRANSLATIONS = {
+    ["UNIVERSAL GAME HUB"] = "TRUNG TÂM GAME ĐA NĂNG",
+    ["WORKSPACE"] = "KHÔNG GIAN",
+    ["●  INTERFACE READY"] = "●  GIAO DIỆN SẴN SÀNG",
+    ["WELCOME TO KATO HUB"] = "CHÀO MỪNG ĐẾN KATO HUB",
+    ["Your games. Your space."] = "Game của bạn. Không gian của bạn.",
+    ["Choose a game menu to open its separate interface."] = "Chọn game để mở giao diện riêng.",
+    ["EXPLORE GAMES"] = "KHÁM PHÁ GAME",
+    ["SUPPORTED GAMES"] = "GAME ĐƯỢC HỖ TRỢ",
+    ["SELECT TO OPEN"] = "CHỌN ĐỂ MỞ",
+    ["Home"] = "Trang chủ",
+    ["Your KATO HUB dashboard."] = "Tổng quan KATO HUB của bạn.",
+    ["Game Selector"] = "Chọn trò chơi",
+    ["Browse the game menus available in this hub."] = "Duyệt các menu game có trong HUB.",
+    ["Search games..."] = "Tìm game...",
+    ["ALL GAMES"] = "TẤT CẢ GAME",
+    ["GAME LIBRARY"] = "THƯ VIỆN GAME",
+    ["Favorites"] = "Yêu thích",
+    ["Your pinned game menus will appear here."] = "Các menu game đã ghim sẽ xuất hiện ở đây.",
+    ["☆\nNo favorites yet"] = "☆\nChưa có mục yêu thích",
+    ["Recently Used"] = "Gần đây",
+    ["Game menus you open can be listed here."] = "Các menu game bạn đã mở sẽ hiển thị ở đây.",
+    ["◷\nNothing opened yet"] = "◷\nChưa mở game nào",
+    ["Settings"] = "Cài đặt",
+    ["KATO HUB interface preferences."] = "Tùy chỉnh giao diện KATO HUB.",
+    ["Appearance"] = "Giao diện",
+    ["Theme"] = "Chủ đề",
+    ["Layout"] = "Bố cục",
+    ["Auto responsive"] = "Tự co giãn",
+    ["Language"] = "Ngôn ngữ",
+    ["OPEN MENU  →"] = "MỞ MENU  →",
+    ["COMING SOON"] = "SẮP RA MẮT",
+    ["Open the separate TSB menu interface."] = "Mở giao diện menu TSB riêng.",
+    ["Additional game menus can be added here later."] = "Có thể thêm menu game khác tại đây sau.",
+    ["GAME MENU 1"] = "MENU GAME 1",
+    ["VERSION 1.0"] = "PHIÊN BẢN 1.0",
+    ["UNIVERSAL GAME HUB"] = "TRUNG TÂM GAME ĐA NĂNG",
+}
+
+local function applyLanguage()
+    local function translate(value)
+        if currentLanguage == "VI" then
+            return TRANSLATIONS[value] or value
+        end
+        -- Restore English by reversing the translation table.
+        for english, vietnamese in pairs(TRANSLATIONS) do
+            if vietnamese == value then
+                return english
+            end
+        end
+        return value
+    end
+
+    for _, object in ipairs(screen:GetDescendants()) do
+        if object:IsA("TextLabel") or object:IsA("TextButton") then
+            object.Text = translate(object.Text)
+        elseif object:IsA("TextBox") then
+            object.PlaceholderText = translate(object.PlaceholderText)
+        end
+    end
+
+    languageButton.Text = currentLanguage == "EN" and "ENGLISH  ▾" or "TIẾNG VIỆT  ▾"
+end
+
+languageButton.Activated:Connect(function()
+    currentLanguage = currentLanguage == "EN" and "VI" or "EN"
+    applyLanguage()
+end)
+
+applyLanguage()
 
 task.spawn(function()
     task.wait(0.75)
