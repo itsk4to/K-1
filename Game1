@@ -1,0 +1,335 @@
+--[[
+KATO HUB - TSB GAME MENU (Executor Version)
+Tự mở khi được loadstring từ Main Menu
+]]
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local CONFIG = {
+	GUI_NAME = "KATO_HUB_TSB",
+	MAIN_URL = "https://raw.githubusercontent.com/itsk4to/K-1/main/Main%20Menu",
+	TOGGLE_KEY = Enum.KeyCode.RightShift,
+	VERSION = "2.0",
+}
+
+local C = {
+	Background = Color3.fromRGB(13, 12, 19),
+	Surface = Color3.fromRGB(22, 20, 31),
+	Surface2 = Color3.fromRGB(30, 27, 42),
+	Surface3 = Color3.fromRGB(41, 36, 56),
+	Purple = Color3.fromRGB(137, 92, 246),
+	PurpleLight = Color3.fromRGB(184, 151, 255),
+	Text = Color3.fromRGB(246, 243, 252),
+	Muted = Color3.fromRGB(159, 151, 177),
+	Border = Color3.fromRGB(67, 59, 88),
+	Red = Color3.fromRGB(235, 112, 130),
+}
+
+local old = playerGui:FindFirstChild(CONFIG.GUI_NAME)
+if old then old:Destroy() end
+
+local function make(class, props, parent)
+	local obj = Instance.new(class)
+	for k, v in pairs(props or {}) do obj[k] = v end
+	obj.Parent = parent
+	return obj
+end
+
+local function round(p, r)
+	return make("UICorner", {CornerRadius = UDim.new(0, r or 10)}, p)
+end
+
+local function outline(p, color)
+	return make("UIStroke", {
+		Color = color or C.Border,
+		Thickness = 1,
+		Transparency = 0.2
+	}, p)
+end
+
+local screen = make("ScreenGui", {
+	Name = CONFIG.GUI_NAME,
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	DisplayOrder = 80,
+}, playerGui)
+
+local shade = make("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = Color3.new(0, 0, 0),
+	BackgroundTransparency = 0.4,
+	BorderSizePixel = 0,
+}, screen)
+
+local window = make("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.5),
+	Size = UDim2.fromOffset(860, 560),
+	BackgroundColor3 = C.Background,
+	BorderSizePixel = 0,
+	ClipsDescendants = true,
+}, shade)
+round(window, 16)
+outline(window)
+
+-- Topbar
+local topbar = make("Frame", {
+	Size = UDim2.new(1, 0, 0, 56),
+	BackgroundColor3 = C.Surface,
+	BorderSizePixel = 0,
+}, window)
+
+make("Frame", {
+	Position = UDim2.fromOffset(14, 10),
+	Size = UDim2.fromOffset(36, 36),
+	BackgroundColor3 = C.Purple,
+	BorderSizePixel = 0,
+}, topbar)
+round(topbar:FindFirstChildOfClass("Frame"), 10)
+
+make("TextLabel", {
+	Position = UDim2.fromOffset(14, 10),
+	Size = UDim2.fromOffset(36, 36),
+	BackgroundTransparency = 1,
+	Text = "K",
+	TextColor3 = Color3.new(1,1,1),
+	Font = Enum.Font.GothamBold,
+	TextSize = 18,
+}, topbar)
+
+make("TextLabel", {
+	Position = UDim2.fromOffset(60, 8),
+	Size = UDim2.fromOffset(300, 22),
+	BackgroundTransparency = 1,
+	Text = "KATO HUB  /  TSB",
+	TextColor3 = C.Text,
+	Font = Enum.Font.GothamBold,
+	TextSize = 15,
+	TextXAlignment = Enum.TextXAlignment.Left,
+}, topbar)
+
+make("TextLabel", {
+	Position = UDim2.fromOffset(61, 30),
+	Size = UDim2.fromOffset(300, 16),
+	BackgroundTransparency = 1,
+	Text = "THE STRONGEST BATTLEGROUNDS",
+	TextColor3 = C.Muted,
+	Font = Enum.Font.Gotham,
+	TextSize = 10,
+	TextXAlignment = Enum.TextXAlignment.Left,
+}, topbar)
+
+local closeBtn = make("TextButton", {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -14, 0.5, 0),
+	Size = UDim2.fromOffset(32, 32),
+	BackgroundColor3 = Color3.fromRGB(110, 40, 55),
+	Text = "×",
+	TextColor3 = C.Text,
+	Font = Enum.Font.GothamBold,
+	TextSize = 18,
+	AutoButtonColor = false,
+	BorderSizePixel = 0,
+}, topbar)
+round(closeBtn, 8)
+
+closeBtn.Activated:Connect(function()
+	screen:Destroy()
+	pcall(function()
+		loadstring(game:HttpGet(CONFIG.MAIN_URL))()
+	end)
+end)
+
+-- Body
+local body = make("Frame", {
+	Position = UDim2.fromOffset(0, 56),
+	Size = UDim2.new(1, 0, 1, -56),
+	BackgroundTransparency = 1,
+}, window)
+
+local sidebar = make("Frame", {
+	Size = UDim2.new(0, 160, 1, 0),
+	BackgroundColor3 = C.Surface,
+	BorderSizePixel = 0,
+}, body)
+
+make("UIListLayout", {
+	Padding = UDim.new(0, 6),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+}, sidebar)
+make("UIPadding", {
+	PaddingTop = UDim.new(0, 12),
+	PaddingLeft = UDim.new(0, 10),
+	PaddingRight = UDim.new(0, 10),
+}, sidebar)
+
+local content = make("Frame", {
+	Position = UDim2.fromOffset(170, 0),
+	Size = UDim2.new(1, -180, 1, 0),
+	BackgroundTransparency = 1,
+}, body)
+
+local scroll = make("ScrollingFrame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 3,
+	ScrollBarImageColor3 = C.Purple,
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	CanvasSize = UDim2.new(),
+}, content)
+
+make("UIPadding", {
+	PaddingTop = UDim.new(0, 16),
+	PaddingLeft = UDim.new(0, 16),
+	PaddingRight = UDim.new(0, 16),
+	PaddingBottom = UDim.new(0, 16),
+}, scroll)
+
+make("UIListLayout", {
+	Padding = UDim.new(0, 12),
+	SortOrder = Enum.SortOrder.LayoutOrder,
+}, scroll)
+
+local function clear()
+	for _, c in ipairs(scroll:GetChildren()) do
+		if c:IsA("GuiObject") then c:Destroy() end
+	end
+end
+
+local function title(text, desc)
+	local h = make("Frame", {
+		Size = UDim2.new(1, 0, 0, 50),
+		BackgroundTransparency = 1,
+	}, scroll)
+	make("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 26),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = C.Text,
+		Font = Enum.Font.GothamBold,
+		TextSize = 18,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, h)
+	make("TextLabel", {
+		Position = UDim2.fromOffset(0, 28),
+		Size = UDim2.new(1, 0, 0, 20),
+		BackgroundTransparency = 1,
+		Text = desc or "",
+		TextColor3 = C.Muted,
+		Font = Enum.Font.Gotham,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, h)
+end
+
+local function card(text, desc)
+	local f = make("Frame", {
+		Size = UDim2.new(1, 0, 0, 72),
+		BackgroundColor3 = C.Surface,
+		BorderSizePixel = 0,
+	}, scroll)
+	round(f, 10)
+	outline(f)
+	make("TextLabel", {
+		Position = UDim2.fromOffset(14, 10),
+		Size = UDim2.new(1, -28, 0, 24),
+		BackgroundTransparency = 1,
+		Text = text,
+		TextColor3 = C.Text,
+		Font = Enum.Font.GothamBold,
+		TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, f)
+	make("TextLabel", {
+		Position = UDim2.fromOffset(14, 36),
+		Size = UDim2.new(1, -28, 0, 22),
+		BackgroundTransparency = 1,
+		Text = desc,
+		TextColor3 = C.Muted,
+		Font = Enum.Font.Gotham,
+		TextSize = 12,
+		TextXAlignment = Enum.TextXAlignment.Left,
+	}, f)
+end
+
+local function render(tab)
+	clear()
+	title("KATO HUB / " .. tab, "TSB Control Panel")
+
+	if tab == "Combat" then
+		card("Combat Settings", "Tích hợp chức năng combat tại đây.")
+		card("Auto Features", "Các nút chức năng sẽ được thêm sau.")
+	elseif tab == "Moveset" then
+		card("Moveset", "Quản lý bộ kỹ năng.")
+	elseif tab == "Visuals" then
+		card("Visuals", "Tùy chỉnh giao diện.")
+	elseif tab == "Misc" then
+		card("Miscellaneous", "Các tiện ích khác.")
+	elseif tab == "Settings" then
+		card("Version", "KATO HUB TSB " .. CONFIG.VERSION)
+		card("Toggle Key", "RightShift để ẩn/hiện menu")
+	end
+end
+
+local tabs = {"Combat", "Moveset", "Visuals", "Misc", "Settings"}
+for i, name in ipairs(tabs) do
+	local btn = make("TextButton", {
+		Size = UDim2.new(1, 0, 0, 38),
+		BackgroundColor3 = C.Surface2,
+		Text = name,
+		TextColor3 = C.Text,
+		Font = Enum.Font.GothamMedium,
+		TextSize = 13,
+		AutoButtonColor = false,
+		BorderSizePixel = 0,
+		LayoutOrder = i,
+	}, sidebar)
+	round(btn, 8)
+
+	btn.MouseEnter:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = C.Purple}):Play()
+	end)
+	btn.MouseLeave:Connect(function()
+		TweenService:Create(btn, TweenInfo.new(0.12), {BackgroundColor3 = C.Surface2}):Play()
+	end)
+	btn.Activated:Connect(function()
+		render(name)
+	end)
+end
+
+render("Combat")
+
+-- Toggle
+UserInputService.InputBegan:Connect(function(input, gpe)
+	if gpe then return end
+	if input.KeyCode == CONFIG.TOGGLE_KEY then
+		screen.Enabled = not screen.Enabled
+	end
+end)
+
+-- Auto open
+task.spawn(function()
+	task.wait(0.1)
+
+	local main = playerGui:FindFirstChild("KATO_HUB_MAIN")
+	if main then main.Enabled = false end
+
+	screen.Enabled = true
+	window.Size = UDim2.fromOffset(820, 530)
+	window.BackgroundTransparency = 0.3
+
+	TweenService:Create(window, TweenInfo.new(0.28, Enum.EasingStyle.Back), {
+		Size = UDim2.fromOffset(860, 560),
+		BackgroundTransparency = 0
+	}):Play()
+end)
+
+print("[KATO HUB TSB] Game Menu loaded")
