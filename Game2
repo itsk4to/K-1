@@ -1,6 +1,6 @@
 --[[
     ====================================================
-        KATO HUB v3.1 - ADVANCED TACTICAL SUITE
+        KATO MTC v3.1 - ADVANCED TACTICAL SUITE
         Features: Fixed Tracers, Head Arrows, Obstacle Check
     ====================================================
 ]]
@@ -16,7 +16,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 --// CLEANUP PREVIOUS INSTANCES
-local GUI_NAME = "KatoHub_Ultimate"
+local GUI_NAME = "Kato MTC"
 local targetParent = pcall(function() return CoreGui.Name end) and CoreGui or PlayerGui
 if targetParent:FindFirstChild(GUI_NAME) then
     targetParent[GUI_NAME]:Destroy()
@@ -784,4 +784,4 @@ RunService.RenderStepped:Connect(function(dt)
     end
 end)
 
-print("[KATO HUB] Advanced Tactical Suite v3.1 loaded successfully.")
+print("[KATO MTC] Advanced Tactical Suite v3.1 loaded successfully.")
