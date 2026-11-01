@@ -14,7 +14,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 local CONFIG = {
 	GUI_NAME = "KATO_HUB_TSB",
-	MAIN_URL = "https://raw.githubusercontent.com/itsk4to/K-1/main/Main%20Menu",
+	MAIN_URL = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Main",
 	TOGGLE_KEY = Enum.KeyCode.RightShift,
 	VERSION = "2.0",
 }
