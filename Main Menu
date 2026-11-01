@@ -15,6 +15,7 @@ Arguments: gameId, gameName
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -107,7 +108,7 @@ local window = create("Frame", {
     Name = "MainWindow",
     AnchorPoint = Vector2.new(0.5, 0.5),
     Position = UDim2.fromScale(0.5, 0.5),
-    Size = UDim2.fromOffset(980, 650),
+    Size = UDim2.fromOffset(850, 560),
     BackgroundColor3 = COLORS.Background,
     BorderSizePixel = 0,
     ClipsDescendants = true,
@@ -115,8 +116,8 @@ local window = create("Frame", {
 corner(window, 18)
 stroke(window, COLORS.Border, 0.15)
 create("UISizeConstraint", {
-    MinSize = Vector2.new(300, 420),
-    MaxSize = Vector2.new(1120, 780),
+    MinSize = Vector2.new(260, 300),
+    MaxSize = Vector2.new(980, 720),
 }, window)
 
 -- Top bar
@@ -437,7 +438,7 @@ local function makeGameCard(parent, game)
     local art = create("Frame", {
         Name = "Artwork",
         Position = UDim2.fromOffset(8, 8),
-        Size = UDim2.new(1, -16, 0, 76),
+        Size = UDim2.new(1, -16, 0, 66),
         BackgroundColor3 = Color3.fromRGB(54, 40, 86),
         BorderSizePixel = 0,
         ClipsDescendants = true,
@@ -467,7 +468,7 @@ local function makeGameCard(parent, game)
     end
 
     create("TextLabel", {
-        Position = UDim2.fromOffset(12, 91),
+        Position = UDim2.fromOffset(12, 82),
         Size = UDim2.new(1, -24, 0, 13),
         BackgroundTransparency = 1,
         Text = game.Category,
@@ -477,7 +478,7 @@ local function makeGameCard(parent, game)
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
     create("TextLabel", {
-        Position = UDim2.fromOffset(12, 106),
+        Position = UDim2.fromOffset(12, 96),
         Size = UDim2.new(1, -24, 0, 21),
         BackgroundTransparency = 1,
         Text = game.Name,
@@ -488,8 +489,8 @@ local function makeGameCard(parent, game)
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
     create("TextLabel", {
-        Position = UDim2.fromOffset(12, 128),
-        Size = UDim2.new(1, -24, 0, 25),
+        Position = UDim2.fromOffset(12, 117),
+        Size = UDim2.new(1, -24, 0, 22),
         BackgroundTransparency = 1,
         Text = game.Description,
         TextColor3 = COLORS.Muted,
@@ -504,7 +505,7 @@ local function makeGameCard(parent, game)
         Name = "OpenButton",
         AnchorPoint = Vector2.new(0, 1),
         Position = UDim2.new(0, 12, 1, -9),
-        Size = UDim2.new(1, -24, 0, 27),
+        Size = UDim2.new(1, -24, 0, 25),
         BackgroundColor3 = game.Enabled and COLORS.Purple or COLORS.Surface3,
         Text = game.Enabled and "OPEN MENU  →" or "COMING SOON",
         TextColor3 = game.Enabled and Color3.new(1, 1, 1) or COLORS.Muted,
@@ -536,12 +537,12 @@ end
 local function makeCardGrid(parent)
     local grid = create("Frame", {
         Name = "GameCards",
-        Size = UDim2.new(1, 0, 0, 188),
+        Size = UDim2.new(1, 0, 0, 176),
         BackgroundTransparency = 1,
     }, parent)
     local layout = create("UIGridLayout", {
-        CellSize = UDim2.new(0.5, -7, 0, 188),
-        CellPadding = UDim2.fromOffset(14, 12),
+        CellSize = UDim2.new(0.5, -7, 0, 176),
+        CellPadding = UDim2.fromOffset(12, 10),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }, grid)
     for _, game in ipairs(GAMES) do
@@ -764,63 +765,163 @@ end
 
 local function updateGrid(grid, layout)
     if isMobile then
-        layout.CellSize = UDim2.new(1, 0, 0, 188)
-        layout.CellPadding = UDim2.fromOffset(0, 12)
+        layout.CellSize = UDim2.new(1, 0, 0, 166)
+        layout.CellPadding = UDim2.fromOffset(0, 10)
     else
-        layout.CellSize = UDim2.new(0.5, -7, 0, 188)
-        layout.CellPadding = UDim2.fromOffset(14, 12)
+        layout.CellSize = UDim2.new(0.5, -6, 0, 176)
+        layout.CellPadding = UDim2.fromOffset(12, 10)
     end
-    grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
+    task.defer(function()
+        grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
+    end)
 end
 
 local function refreshLayout()
     local camera = Workspace.CurrentCamera
     local viewport = camera and camera.ViewportSize or Vector2.new(1000, 700)
-    isMobile = viewport.X < 680
-    if isMinimized then return end
+    isMobile = viewport.X < 720
+
+    if isMinimized then
+        return
+    end
+
+    -- Use pixel sizing with safe margins so the window never fills the whole phone.
+    local width
+    local height
+    if isMobile then
+        width = math.max(260, math.min(viewport.X - 28, 410))
+        height = math.max(300, math.min(viewport.Y - 110, 540))
+    else
+        width = math.min(850, viewport.X - 80)
+        height = math.min(560, viewport.Y - 80)
+        width = math.max(620, width)
+        height = math.max(420, height)
+    end
+
+    window.Size = UDim2.fromOffset(width, height)
+    window.Position = UDim2.fromScale(0.5, 0.5)
+    topbar.Size = UDim2.new(1, 0, 0, isMobile and 54 or 62)
+    body.Position = UDim2.fromOffset(0, isMobile and 54 or 62)
+    body.Size = UDim2.new(1, 0, 1, -(isMobile and 54 or 62))
 
     if isMobile then
-        window.Size = UDim2.new(0.98, 0, 0.94, 0)
-        sidebar.Size = UDim2.new(0, 62, 1, 0)
-        pageHost.Position = UDim2.new(0, 62, 0, 0)
-        pageHost.Size = UDim2.new(1, -62, 1, 0)
+        sidebar.Size = UDim2.new(0, 48, 1, 0)
+        pageHost.Position = UDim2.new(0, 48, 0, 0)
+        pageHost.Size = UDim2.new(1, -48, 1, 0)
         sidebarTitle.Visible = false
         sidebarStatus.Visible = false
         brandSub.Visible = false
-        brandName.Size = UDim2.fromOffset(120, 22)
+        brandName.Position = UDim2.fromOffset(58, 14)
+        brandName.Size = UDim2.fromOffset(115, 22)
+        brandName.TextSize = 15
+        logo.Position = UDim2.fromOffset(12, 9)
+        logo.Size = UDim2.fromOffset(34, 34)
         version.Visible = false
+
         for _, button in pairs(navButtons) do
-            button.Size = UDim2.new(1, -12, 0, 43)
+            button.Size = UDim2.new(1, -8, 0, 40)
             button.Label.Visible = false
             button.Icon.Position = UDim2.fromOffset(0, 0)
             button.Icon.Size = UDim2.fromScale(1, 1)
+            button.Icon.TextSize = 16
         end
-        navHolder.Position = UDim2.fromOffset(6, 18)
-        navHolder.Size = UDim2.new(1, -12, 0, 245)
-        navLayout.Padding = UDim.new(0, 8)
+        navHolder.Position = UDim2.fromOffset(4, 14)
+        navHolder.Size = UDim2.new(1, -8, 0, 235)
+        navLayout.Padding = UDim.new(0, 7)
     else
-        window.Size = UDim2.fromOffset(980, 650)
-        sidebar.Size = UDim2.new(0, 190, 1, 0)
-        pageHost.Position = UDim2.new(0, 190, 0, 0)
-        pageHost.Size = UDim2.new(1, -190, 1, 0)
+        sidebar.Size = UDim2.new(0, 178, 1, 0)
+        pageHost.Position = UDim2.new(0, 178, 0, 0)
+        pageHost.Size = UDim2.new(1, -178, 1, 0)
         sidebarTitle.Visible = true
         sidebarStatus.Visible = true
         brandSub.Visible = true
-        brandName.Size = UDim2.fromOffset(190, 22)
+        brandName.Position = UDim2.fromOffset(64, 12)
+        brandName.Size = UDim2.fromOffset(180, 22)
+        brandName.TextSize = 17
+        logo.Position = UDim2.fromOffset(18, 13)
+        logo.Size = UDim2.fromOffset(36, 36)
         version.Visible = true
+
         for _, button in pairs(navButtons) do
-            button.Size = UDim2.new(1, 0, 0, 43)
+            button.Size = UDim2.new(1, 0, 0, 42)
             button.Label.Visible = true
             button.Icon.Position = UDim2.fromOffset(7, 0)
-            button.Icon.Size = UDim2.fromOffset(34, 43)
+            button.Icon.Size = UDim2.fromOffset(34, 42)
+            button.Icon.TextSize = 17
         end
         navHolder.Position = UDim2.fromOffset(10, 48)
-        navHolder.Size = UDim2.new(1, -20, 0, 250)
+        navHolder.Size = UDim2.new(1, -20, 0, 245)
         navLayout.Padding = UDim.new(0, 7)
     end
+
+    -- Tighter page padding on narrow screens.
+    for _, page in pairs(pages) do
+        local padding = page:FindFirstChildOfClass("UIPadding")
+        if padding then
+            local side = isMobile and 12 or 20
+            padding.PaddingLeft = UDim.new(0, side)
+            padding.PaddingRight = UDim.new(0, side)
+            padding.PaddingTop = UDim.new(0, isMobile and 14 or 20)
+            padding.PaddingBottom = UDim.new(0, 22)
+        end
+    end
+
     updateGrid(homeGrid, homeGridLayout)
     updateGrid(selectorGrid, selectorGridLayout)
 end
+
+-- Drag the panel from its title bar. Works with mouse and touch.
+local dragging = false
+local dragInput = nil
+local dragStart = nil
+local startPosition = nil
+
+local function isTopbarButton(target)
+    return target == minimizeButton or target == closeButton
+end
+
+topbar.InputBegan:Connect(function(input)
+    if input.UserInputType ~= Enum.UserInputType.MouseButton1
+        and input.UserInputType ~= Enum.UserInputType.Touch then
+        return
+    end
+
+    local target = playerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
+    for _, guiObject in ipairs(target) do
+        if isTopbarButton(guiObject) then
+            return
+        end
+    end
+
+    dragging = true
+    dragStart = input.Position
+    startPosition = window.Position
+    dragInput = input
+
+    input.Changed:Connect(function()
+        if input.UserInputState == Enum.UserInputState.End then
+            dragging = false
+            dragInput = nil
+        end
+    end)
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if not dragging then
+        return
+    end
+
+    if input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch then
+        local delta = input.Position - dragStart
+        window.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end
+end)
 
 exploreButton.Activated:Connect(function()
     setActivePage("Game Selector")
@@ -877,4 +978,79 @@ end)
 
 setActivePage("Home")
 refreshLayout()
+
+-- Short startup intro, then reveal the responsive main window.
+window.Visible = false
+local intro = create("Frame", {
+    Name = "KATOIntro",
+    Size = UDim2.fromScale(1, 1),
+    BackgroundColor3 = COLORS.Background,
+    BackgroundTransparency = 0.04,
+    BorderSizePixel = 0,
+    ZIndex = 100,
+}, screen)
+
+local introLogo = create("Frame", {
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.42),
+    Size = UDim2.fromOffset(62, 62),
+    BackgroundColor3 = COLORS.Purple,
+    BorderSizePixel = 0,
+    ZIndex = 101,
+}, intro)
+corner(introLogo, 18)
+create("UIGradient", {
+    Color = ColorSequence.new(COLORS.PurpleLight, COLORS.Purple),
+    Rotation = 45,
+}, introLogo)
+create("TextLabel", {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Text = "K",
+    TextColor3 = Color3.new(1, 1, 1),
+    Font = Enum.Font.GothamBlack,
+    TextSize = 38,
+    ZIndex = 102,
+}, introLogo)
+
+local introTitle = create("TextLabel", {
+    AnchorPoint = Vector2.new(0.5, 0),
+    Position = UDim2.fromScale(0.5, 0.52),
+    Size = UDim2.new(0.8, 0, 0, 34),
+    BackgroundTransparency = 1,
+    Text = "KATO HUB",
+    TextColor3 = COLORS.Text,
+    Font = Enum.Font.GothamBlack,
+    TextSize = 25,
+    ZIndex = 101,
+}, intro)
+local introSubtitle = create("TextLabel", {
+    AnchorPoint = Vector2.new(0.5, 0),
+    Position = UDim2.fromScale(0.5, 0.59),
+    Size = UDim2.new(0.85, 0, 0, 22),
+    BackgroundTransparency = 1,
+    Text = "UNIVERSAL GAME HUB",
+    TextColor3 = COLORS.PurpleLight,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 10,
+    ZIndex = 101,
+}, intro)
+
+task.spawn(function()
+    task.wait(0.75)
+    local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(intro, fadeInfo, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(introLogo, fadeInfo, { BackgroundTransparency = 1 }):Play()
+    TweenService:Create(introTitle, fadeInfo, { TextTransparency = 1 }):Play()
+    TweenService:Create(introSubtitle, fadeInfo, { TextTransparency = 1 }):Play()
+    task.wait(0.38)
+    intro:Destroy()
+    window.Visible = true
+    local targetSize = window.Size
+    window.Size = UDim2.fromOffset(targetSize.X.Offset * 0.94, targetSize.Y.Offset * 0.94)
+    TweenService:Create(window, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+        Size = targetSize,
+    }):Play()
+end)
+
 print("[KATO HUB] Main GUI loaded. Listen to PlayerGui.KATOHubGameSelected for menu selection.")
