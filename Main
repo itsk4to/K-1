@@ -1,11 +1,11 @@
 --[[
-    KATO HUB - MAIN MENU v2.1 MERGED
+    KATO HUB - MAIN MENU v2.2 UTILITIES UPDATE
     GUI: WinUI-inspired custom interface
     Target: Roblox Executor environment
 
     Merged features from the older animated menu:
     - Startup intro animation and gradient logo
-    - Sidebar navigation: Home / Game Selector / Favorites / Recently Used / Settings
+    - Sidebar navigation: Home / Game Selector / Favorites / Recently Used / Utilities / Settings
     - Search, favorites, and recently-used list
     - EN / VI language toggle
     - Draggable window, minimize, close, and keyboard toggle
@@ -81,6 +81,20 @@ local GAMES = {
         Enabled = false,
     },
 }
+
+-- UTILITIES LIBRARY
+-- Add utility entries here. Keep Url empty until you have a URL to record.
+-- Example:
+-- {
+--     Id = "UTILITY_1",
+--     Name = "Utility Name",
+--     NameVi = "Tên tiện ích",
+--     Description = "English description.",
+--     DescriptionVi = "Mô tả tiếng Việt.",
+--     Enabled = false,
+--     Url = "",
+-- },
+local UTILITIES = {}
 
 -- CLEAN OLD GUI
 local oldGui = playerGui:FindFirstChild("KATO_HUB_MAIN")
@@ -289,7 +303,7 @@ local versionLabel = create("TextLabel", {
     Position = UDim2.new(1, -112, 0.5, 0),
     Size = UDim2.fromOffset(76, 25),
     BackgroundColor3 = COLORS.Surface3,
-    Text = "VERSION 2.1",
+    Text = "VERSION 2.2",
     TextColor3 = COLORS.PurpleLight,
     Font = Enum.Font.GothamSemibold,
     TextSize = 9,
@@ -480,6 +494,8 @@ local homeGrid, homeGridLayout
 local selectorGrid, selectorGridLayout
 local favoritesGrid, favoritesGridLayout
 local recentGrid, recentGridLayout
+local utilityGrid, utilityGridLayout
+local utilitiesEmpty
 local favoritesEmpty, recentEmpty
 local selectorSearch
 local rebuildFavorites
@@ -685,6 +701,112 @@ local function makeCardGrid(parent, gridName)
     end)
 
     return holder, layout
+end
+
+-- UTILITIES CARDS
+-- Utilities are catalog entries only. Url is stored/displayed as configuration;
+-- this page does not execute arbitrary remote code.
+local function makeUtilityCard(parent, utility, order)
+    local card = create("Frame", {
+        Name = utility.Id .. "Card",
+        LayoutOrder = order or 1,
+        BackgroundColor3 = COLORS.Surface2,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, parent)
+    corner(card, 14)
+    local cardStroke = stroke(card, COLORS.Border, 0.22)
+    local utilityUrl = utility.Url or ""
+
+    local title = create("TextLabel", {
+        Name = "Title",
+        Position = UDim2.fromOffset(12, 14),
+        Size = UDim2.new(1, -24, 0, 23),
+        BackgroundTransparency = 1,
+        Text = getGameText(utility, "Name"),
+        TextColor3 = COLORS.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, card)
+
+    local description = create("TextLabel", {
+        Name = "Description",
+        Position = UDim2.fromOffset(12, 43),
+        Size = UDim2.new(1, -24, 0, 48),
+        BackgroundTransparency = 1,
+        Text = getGameText(utility, "Description"),
+        TextColor3 = COLORS.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 10,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top,
+    }, card)
+
+    local urlLabel = create("TextLabel", {
+        Name = "URLLabel",
+        Position = UDim2.fromOffset(12, 103),
+        Size = UDim2.new(1, -24, 0, 13),
+        BackgroundTransparency = 1,
+        Text = "URL",
+        TextColor3 = COLORS.PurpleLight,
+        Font = Enum.Font.GothamBold,
+        TextSize = 8,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, card)
+
+    local urlValue = create("TextLabel", {
+        Name = "URLValue",
+        Position = UDim2.fromOffset(12, 120),
+        Size = UDim2.new(1, -24, 0, 34),
+        BackgroundColor3 = COLORS.Surface3,
+        BackgroundTransparency = 0.1,
+        Text = utilityUrl ~= "" and utilityUrl or "(empty)",
+        TextColor3 = utilityUrl ~= "" and COLORS.Text or COLORS.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+    }, card)
+    corner(urlValue, 7)
+    create("UIPadding", {
+        PaddingLeft = UDim.new(0, 8),
+        PaddingRight = UDim.new(0, 8),
+    }, urlValue)
+
+    card.MouseEnter:Connect(function()
+        tween(card, { BackgroundColor3 = Color3.fromRGB(36, 32, 51) }, 0.14)
+        tween(cardStroke, { Transparency = 0.02, Color = COLORS.Purple }, 0.14)
+    end)
+    card.MouseLeave:Connect(function()
+        tween(card, { BackgroundColor3 = COLORS.Surface2 }, 0.14)
+        tween(cardStroke, { Transparency = 0.22, Color = COLORS.Border }, 0.14)
+    end)
+
+    return card
+end
+
+local function renderUtilityGrid(holder)
+    if not holder then
+        return
+    end
+
+    for _, child in ipairs(holder:GetChildren()) do
+        if child:IsA("Frame") and child.Name:match("Card$") then
+            child:Destroy()
+        end
+    end
+
+    for index, utility in ipairs(UTILITIES) do
+        makeUtilityCard(holder, utility, index)
+    end
+
+    if utilitiesEmpty then
+        utilitiesEmpty.Visible = (#UTILITIES == 0)
+    end
 end
 
 local function renderGrid(holder, gameList)
@@ -922,6 +1044,49 @@ local recentEmptyText = create("TextLabel", {
 localize(recentEmptyText, "◷\nNothing opened yet", "◷\nChưa mở menu nào")
 recentGrid, recentGridLayout = makeCardGrid(recentPage, "RecentlyUsedGrid")
 
+-- UTILITIES PAGE
+local utilitiesPage = makePage("Utilities")
+makePageHeader(
+    utilitiesPage,
+    "Utilities",
+    "Tiện ích",
+    "Browse your independent utility library.",
+    "Danh sách các tiện ích riêng của KATO HUB."
+)
+
+makeSectionTitle(
+    utilitiesPage,
+    "ALL UTILITIES",
+    "TẤT CẢ TIỆN ÍCH",
+    "UTILITY LIBRARY",
+    "THƯ VIỆN TIỆN ÍCH"
+)
+
+utilitiesEmpty = create("Frame", {
+    Name = "UtilitiesEmpty",
+    Size = UDim2.new(1, 0, 0, 115),
+    BackgroundColor3 = COLORS.Surface2,
+    BorderSizePixel = 0,
+}, utilitiesPage)
+corner(utilitiesEmpty, 14)
+local utilitiesEmptyText = create("TextLabel", {
+    Size = UDim2.fromScale(1, 1),
+    BackgroundTransparency = 1,
+    Text = "No utilities added yet\nAdd entries in the UTILITIES table.",
+    TextColor3 = COLORS.Muted,
+    Font = Enum.Font.GothamSemibold,
+    TextSize = 12,
+    TextWrapped = true,
+}, utilitiesEmpty)
+localize(
+    utilitiesEmptyText,
+    "No utilities added yet\nAdd entries in the UTILITIES table.",
+    "Chưa có tiện ích nào\nThêm mục trong bảng UTILITIES."
+)
+
+utilityGrid, utilityGridLayout = makeCardGrid(utilitiesPage, "UtilityGrid")
+renderUtilityGrid(utilityGrid)
+
 -- SETTINGS PAGE
 local settingsPage = makePage("Settings")
 makePageHeader(settingsPage, "Settings", "Cài đặt", "KATO HUB interface preferences.", "Tùy chỉnh giao diện KATO HUB.")
@@ -1038,6 +1203,7 @@ local NAV_ITEMS = {
     { Name = "Game Selector", NameVi = "Chọn game", Icon = "▦" },
     { Name = "Favorites", NameVi = "Yêu thích", Icon = "☆" },
     { Name = "Recently Used", NameVi = "Gần đây", Icon = "◷" },
+    { Name = "Utilities", NameVi = "Tiện ích", Icon = "✦" },
     { Name = "Settings", NameVi = "Cài đặt", Icon = "⚙" },
 }
 
@@ -1205,7 +1371,7 @@ local function refreshLayout()
         versionLabel.Visible = false
 
         for _, button in pairs(navButtons) do
-            button.Size = UDim2.new(1, -8, 0, 40)
+            button.Size = UDim2.new(1, -8, 0, 36)
             local navLabel = button:FindFirstChild("Label")
             local navIcon = button:FindFirstChild("Icon")
             if navLabel then navLabel.Visible = false end
@@ -1216,7 +1382,8 @@ local function refreshLayout()
             end
         end
         navHolder.Position = UDim2.fromOffset(4, 13)
-        navHolder.Size = UDim2.new(1, -8, 0, 235)
+        navHolder.Size = UDim2.new(1, -8, 0, 245)
+        navLayout.Padding = UDim.new(0, 5)
     else
         sidebar.Size = UDim2.new(0, 180, 1, 0)
         pageHost.Position = UDim2.new(0, 180, 0, 0)
@@ -1244,7 +1411,8 @@ local function refreshLayout()
             end
         end
         navHolder.Position = UDim2.fromOffset(10, 48)
-        navHolder.Size = UDim2.new(1, -20, 0, 245)
+        navHolder.Size = UDim2.new(1, -20, 0, 300)
+        navLayout.Padding = UDim.new(0, 7)
     end
 
     for _, page in pairs(pageObjects) do
@@ -1262,6 +1430,7 @@ local function refreshLayout()
     updateGridLayout(selectorGrid, selectorGridLayout)
     updateGridLayout(favoritesGrid, favoritesGridLayout)
     updateGridLayout(recentGrid, recentGridLayout)
+    updateGridLayout(utilityGrid, utilityGridLayout)
 end
 
 -- DRAG WINDOW (topbar only; buttons are excluded)
@@ -1350,6 +1519,7 @@ languageButton.Activated:Connect(function()
     -- Favorites / Recently Used are rebuilt so their card text matches the language.
     rebuildFavorites()
     rebuildRecent()
+    renderUtilityGrid(utilityGrid)
 end)
 
 -- MINIMIZE / CLOSE
@@ -1503,4 +1673,4 @@ screen.Destroying:Connect(function()
     if inputChangedConnection then inputChangedConnection:Disconnect() end
 end)
 
-print("[KATO HUB] Main Menu v2.1 merged loaded successfully")
+print("[KATO HUB] Main Menu v2.2 with Utilities loaded successfully")
