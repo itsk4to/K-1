@@ -40,8 +40,8 @@ local GAMES = {
         Name = "The Strongest Battlegrounds",
         ShortName = "TSB",
         Category = "GAME MENU 1",
-        Description = "Open the separate TSB menu interface.",
-        Image = "",
+        Description = "Open the TSB interface.",
+        Image = "rbxthumb://type=GameIcon&id=3808081382&w=512&h=512",
         Enabled = true,
     },
     {
@@ -57,6 +57,11 @@ local GAMES = {
 
 local previousGui = playerGui:FindFirstChild("KATO_HUB_MAIN")
 if previousGui then
+    if previousGui:IsA("ScreenGui") then
+        previousGui.Enabled = true
+        warn("[KATO HUB] Main Menu already exists; keeping its current UI instance.")
+        return
+    end
     previousGui:Destroy()
 end
 
@@ -438,7 +443,7 @@ local function makeGameCard(parent, game)
     local art = create("Frame", {
         Name = "Artwork",
         Position = UDim2.fromOffset(8, 8),
-        Size = UDim2.new(1, -16, 0, 66),
+        Size = UDim2.new(1, -16, 0, 92),
         BackgroundColor3 = Color3.fromRGB(54, 40, 86),
         BorderSizePixel = 0,
         ClipsDescendants = true,
@@ -468,7 +473,7 @@ local function makeGameCard(parent, game)
     end
 
     create("TextLabel", {
-        Position = UDim2.fromOffset(12, 82),
+        Position = UDim2.fromOffset(12, 108),
         Size = UDim2.new(1, -24, 0, 13),
         BackgroundTransparency = 1,
         Text = game.Category,
@@ -478,7 +483,7 @@ local function makeGameCard(parent, game)
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
     create("TextLabel", {
-        Position = UDim2.fromOffset(12, 96),
+        Position = UDim2.fromOffset(12, 122),
         Size = UDim2.new(1, -24, 0, 21),
         BackgroundTransparency = 1,
         Text = game.Name,
@@ -489,7 +494,7 @@ local function makeGameCard(parent, game)
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
     create("TextLabel", {
-        Position = UDim2.fromOffset(12, 117),
+        Position = UDim2.fromOffset(12, 147),
         Size = UDim2.new(1, -24, 0, 22),
         BackgroundTransparency = 1,
         Text = game.Description,
@@ -537,11 +542,11 @@ end
 local function makeCardGrid(parent)
     local grid = create("Frame", {
         Name = "GameCards",
-        Size = UDim2.new(1, 0, 0, 176),
+        Size = UDim2.new(1, 0, 0, 206),
         BackgroundTransparency = 1,
     }, parent)
     local layout = create("UIGridLayout", {
-        CellSize = UDim2.new(0.5, -7, 0, 176),
+        CellSize = UDim2.new(0.5, -7, 0, 206),
         CellPadding = UDim2.fromOffset(12, 10),
         SortOrder = Enum.SortOrder.LayoutOrder,
     }, grid)
@@ -789,10 +794,10 @@ end
 
 local function updateGrid(grid, layout)
     if isMobile then
-        layout.CellSize = UDim2.new(1, 0, 0, 166)
+        layout.CellSize = UDim2.new(1, 0, 0, 196)
         layout.CellPadding = UDim2.fromOffset(0, 10)
     else
-        layout.CellSize = UDim2.new(0.5, -6, 0, 176)
+        layout.CellSize = UDim2.new(0.5, -6, 0, 206)
         layout.CellPadding = UDim2.fromOffset(12, 10)
     end
     task.defer(function()
