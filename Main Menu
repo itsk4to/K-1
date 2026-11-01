@@ -1,1170 +1,903 @@
 --[[
-KATO HUB - MAIN MENU GUI
-Type: LocalScript for Roblox Studio
-Install: StarterPlayer > StarterPlayerScripts > LocalScript
-
-When pressing TSB → loads external menu from GitHub
+    KATO HUB 2.0 (Executor Version)
+    Hỗ trợ: Solara, Delta, Wave, Fluxus...
+    Dùng loadstring để mở menu con
 ]]
 
+--// Services
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
-local COLORS = {
-	Background = Color3.fromRGB(13, 12, 19),
-	Surface = Color3.fromRGB(22, 20, 31),
-	Surface2 = Color3.fromRGB(30, 27, 42),
-	Surface3 = Color3.fromRGB(39, 35, 54),
-	Purple = Color3.fromRGB(137, 92, 246),
-	PurpleLight = Color3.fromRGB(177, 139, 255),
-	Text = Color3.fromRGB(245, 242, 252),
-	Muted = Color3.fromRGB(160, 153, 176),
-	Border = Color3.fromRGB(66, 58, 86),
-	Green = Color3.fromRGB(91, 210, 153),
+--// Configuration
+local CONFIG = {
+    Name = "KATO_HUB_2_0",
+    Version = "2.0.0",
+    DefaultLanguage = "VI",
+    Accent = Color3.fromRGB(157, 91, 255),
+    AccentDark = Color3.fromRGB(95, 52, 166),
+    Background = Color3.fromRGB(13, 12, 20),
+    Panel = Color3.fromRGB(23, 21, 34),
+    PanelLight = Color3.fromRGB(31, 28, 45),
+    Text = Color3.fromRGB(245, 242, 255),
+    Muted = Color3.fromRGB(157, 151, 174),
+    Success = Color3.fromRGB(94, 214, 153),
+    Danger = Color3.fromRGB(239, 91, 109),
 }
 
+-- Thêm Url để loadstring
 local GAMES = {
-	{
-		Id = "TSB",
-		Name = "The Strongest Battlegrounds",
-		ShortName = "TSB",
-		Category = "GAME MENU 1",
-		Description = "Open the TSB interface.",
-		Image = "rbxthumb://type=GameIcon&id=3808081382&w=512&h=512",
-		Enabled = true,
-	},
-	{
-		Id = "MORE",
-		Name = "More Games",
-		ShortName = "+",
-		Category = "COMING SOON",
-		Description = "Additional game menus can be added here later.",
-		Image = "",
-		Enabled = false,
-	},
+    {
+        id = "tsb",
+        name = "The Strongest Battlegrounds",
+        category = "Fighting",
+        description = "Mở giao diện riêng của bạn cho game này.",
+        icon = "⚔",
+        status = "READY",
+        Url = "https://raw.githubusercontent.com/itsk4to/K-1/main/Game%20Menu%201" -- Link menu TSB
+    },
+    {
+        id = "training",
+        name = "Training Arena",
+        category = "Practice",
+        description = "Khu vực luyện tập và thử nghiệm giao diện.",
+        icon = "🎯",
+        status = "DEMO",
+        -- Url = "link_menu_khác" 
+    },
+    {
+        id = "coming_soon",
+        name = "Coming Soon",
+        category = "More Games",
+        description = "Bạn có thể thay mục này bằng game của mình.",
+        icon = "✦",
+        status = "SOON",
+    },
 }
 
-local previousGui = playerGui:FindFirstChild("KATO_HUB_MAIN")
-if previousGui then
-	if previousGui:IsA("ScreenGui") then
-		previousGui.Enabled = true
-		warn("[KATO HUB] Main Menu already exists; keeping its current UI instance.")
-		return
-	end
-	previousGui:Destroy()
+local TEXT = {
+    VI = {
+        home = "Trang chủ", games = "Danh sách game", favorites = "Yêu thích",
+        recent = "Gần đây", settings = "Cài đặt", welcome = "CHÀO MỪNG ĐẾN VỚI KATO HUB",
+        tagline = "Một giao diện gọn gàng cho trải nghiệm Roblox của bạn.",
+        featured = "NỔI BẬT", browse = "Khám phá game", allGames = "Tất cả trò chơi",
+        search = "Tìm game...", open = "MỞ", add = "☆", remove = "★",
+        noFavorites = "Chưa có game yêu thích", noRecent = "Chưa có game nào được mở gần đây",
+        emptyHint = "Nhấn biểu tượng ngôi sao trên một thẻ game để lưu tại đây.",
+        settingsTitle = "Tùy chỉnh KATO HUB", language = "Ngôn ngữ giao diện",
+        vietnamese = "Tiếng Việt", english = "English", appearance = "Giao diện",
+        themeInfo = "Chủ đề tím đậm đang được sử dụng.", about = "Thông tin",
+        version = "Phiên bản", close = "Đóng", minimized = "KATO HUB đang thu nhỏ",
+        selected = "Đã mở: ", soon = "Mục này hiện chỉ là bản xem trước.",
+        moduleHint = "Menu được load bằng loadstring từ GitHub.",
+        noResults = "Không tìm thấy game phù hợp.", back = "Quay lại",
+        loadError = "Không thể load menu. Kiểm tra link GitHub.",
+    },
+    EN = {
+        home = "Home", games = "Game Library", favorites = "Favorites",
+        recent = "Recently Used", settings = "Settings", welcome = "WELCOME TO KATO HUB",
+        tagline = "A clean interface for your Roblox experience.",
+        featured = "FEATURED", browse = "Explore games", allGames = "All games",
+        search = "Search games...", open = "OPEN", add = "☆", remove = "★",
+        noFavorites = "No favorite games yet", noRecent = "Nothing opened recently",
+        emptyHint = "Tap the star on a game card to save it here.",
+        settingsTitle = "Customize KATO HUB", language = "Interface language",
+        vietnamese = "Tiếng Việt", english = "English", appearance = "Appearance",
+        themeInfo = "The dark purple theme is active.", about = "About",
+        version = "Version", close = "Close", minimized = "KATO HUB is minimized",
+        selected = "Opened: ", soon = "This item is currently a preview.",
+        moduleHint = "Menus are loaded via loadstring from GitHub.",
+        noResults = "No matching games found.", back = "Back",
+        loadError = "Failed to load menu. Check GitHub link.",
+    },
+}
+
+local language = CONFIG.DefaultLanguage
+local favorites = {}
+local recentlyUsed = {}
+local currentPage = "home"
+local currentSearch = ""
+local isMinimized = false
+local isMobile = false
+
+local function tr(key)
+    local pack = TEXT[language] or TEXT.VI
+    return pack[key] or key
 end
 
-local selectedEvent = playerGui:FindFirstChild("KATOHubGameSelected")
-if not selectedEvent then
-	selectedEvent = Instance.new("BindableEvent")
-	selectedEvent.Name = "KATOHubGameSelected"
-	selectedEvent.Parent = playerGui
-end
-
-local function create(className, properties, parent)
-	local object = Instance.new(className)
-	for property, value in pairs(properties or {}) do
-		object[property] = value
-	end
-	object.Parent = parent
-	return object
+--// Helpers
+local function create(className, props, parent)
+    local object = Instance.new(className)
+    for key, value in pairs(props or {}) do
+        object[key] = value
+    end
+    object.Parent = parent
+    return object
 end
 
 local function corner(parent, radius)
-	return create("UICorner", { CornerRadius = UDim.new(0, radius or 12) }, parent)
+    return create("UICorner", { CornerRadius = UDim.new(0, radius or 12) }, parent)
 end
 
-local function stroke(parent, color, transparency)
-	return create("UIStroke", {
-		Color = color or COLORS.Border,
-		Transparency = transparency or 0,
-		Thickness = 1,
-	}, parent)
+local function stroke(parent, color, transparency, thickness)
+    return create("UIStroke", {
+        Color = color or CONFIG.Accent,
+        Transparency = transparency == nil and 0.65 or transparency,
+        Thickness = thickness or 1,
+    }, parent)
 end
 
-local screen = create("ScreenGui", {
-	Name = "KATO_HUB_MAIN",
-	ResetOnSpawn = false,
-	IgnoreGuiInset = true,
-	DisplayOrder = 50,
-	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+local function tween(object, duration, properties)
+    local info = TweenInfo.new(duration or 0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+    local animation = TweenService:Create(object, info, properties)
+    animation:Play()
+    return animation
+end
+
+local function makeLabel(parent, text, size, position, fontSize, color, bold)
+    return create("TextLabel", {
+        Name = "Label",
+        BackgroundTransparency = 1,
+        Text = text or "",
+        Size = size,
+        Position = position,
+        Font = bold and Enum.Font.GothamBold or Enum.Font.Gotham,
+        TextSize = fontSize or 14,
+        TextColor3 = color or CONFIG.Text,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextWrapped = false,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+    }, parent)
+end
+
+local function makeButton(parent, text, size, position, callback, style)
+    style = style or "primary"
+    local bg = style == "primary" and CONFIG.Accent or CONFIG.PanelLight
+    local button = create("TextButton", {
+        AutoButtonColor = false,
+        Text = text,
+        Size = size,
+        Position = position,
+        BackgroundColor3 = bg,
+        TextColor3 = CONFIG.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        BorderSizePixel = 0,
+    }, parent)
+    corner(button, 9)
+    if style \~= "primary" then
+        stroke(button, Color3.fromRGB(91, 82, 116), 0.55, 1)
+    end
+    button.MouseEnter:Connect(function()
+        if button.Active then
+            tween(button, 0.14, { BackgroundColor3 = style == "primary" and CONFIG.AccentDark or Color3.fromRGB(48, 43, 66) })
+        end
+    end)
+    button.MouseLeave:Connect(function()
+        tween(button, 0.14, { BackgroundColor3 = bg })
+    end)
+    button.Activated:Connect(function()
+        if callback then callback() end
+    end)
+    return button
+end
+
+local gui
+local showPage
+local renderPage
+local updateNavigationLabels
+local reopenButton
+
+local function notify(message, accentColor)
+    local toast = create("Frame", {
+        Name = "Toast",
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -18, 1, 80),
+        Size = UDim2.new(0, 270, 0, 48),
+        BackgroundColor3 = CONFIG.PanelLight,
+        BorderSizePixel = 0,
+        ZIndex = 50,
+    }, gui)
+    corner(toast, 10)
+    stroke(toast, accentColor or CONFIG.Accent, 0.35, 1)
+    local bar = create("Frame", {
+        Size = UDim2.new(0, 4, 1, -14),
+        Position = UDim2.new(0, 7, 0, 7),
+        BackgroundColor3 = accentColor or CONFIG.Accent,
+        BorderSizePixel = 0,
+        ZIndex = 51,
+    }, toast)
+    corner(bar, 4)
+    create("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 20, 0, 0),
+        Size = UDim2.new(1, -28, 1, 0),
+        Font = Enum.Font.Gotham,
+        Text = message,
+        TextColor3 = CONFIG.Text,
+        TextSize = 12,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 51,
+    }, toast)
+    tween(toast, 0.25, { Position = UDim2.new(1, -18, 1, -18) })
+    task.delay(2.7, function()
+        if toast and toast.Parent then
+            tween(toast, 0.2, { Position = UDim2.new(1, -18, 1, 80), BackgroundTransparency = 1 })
+            task.delay(0.22, function()
+                if toast then toast:Destroy() end
+            end)
+        end
+    end)
+end
+
+local function getGameById(id)
+    for _, gameInfo in ipairs(GAMES) do
+        if gameInfo.id == id then return gameInfo end
+    end
+    return nil
+end
+
+local function addRecent(id)
+    for index = #recentlyUsed, 1, -1 do
+        if recentlyUsed[index] == id then
+            table.remove(recentlyUsed, index)
+        end
+    end
+    table.insert(recentlyUsed, 1, id)
+    while #recentlyUsed > 8 do
+        table.remove(recentlyUsed)
+    end
+end
+
+--// Hàm quan trọng: Load menu bằng loadstring
+local function launchGame(gameInfo)
+    if not gameInfo then return end
+    if gameInfo.status == "SOON" then
+        notify(tr("soon"), CONFIG.Muted)
+        return
+    end
+
+    addRecent(gameInfo.id)
+
+    -- Nếu có Url thì dùng loadstring (Executor)
+    if gameInfo.Url and gameInfo.Url \~= "" then
+        -- Ẩn Main Hub
+        if gui then
+            gui.Enabled = false
+        end
+
+        local success, err = pcall(function()
+            loadstring(game:HttpGet(gameInfo.Url))()
+        end)
+
+        if not success then
+            warn("[KATO HUB] Load failed:", err)
+            notify(tr("loadError"), CONFIG.Danger)
+            if gui then
+                gui.Enabled = true
+            end
+        else
+            notify(tr("selected") .. gameInfo.name, CONFIG.Success)
+        end
+    else
+        -- Không có Url thì chỉ thông báo
+        notify(tr("selected") .. gameInfo.name, CONFIG.Success)
+    end
+
+    if currentPage == "recent" and showPage then
+        task.defer(function() showPage("recent") end)
+    end
+end
+
+--// Xóa GUI cũ
+local oldGui = playerGui:FindFirstChild(CONFIG.Name)
+if oldGui then oldGui:Destroy() end
+
+--// Main ScreenGui
+gui = create("ScreenGui", {
+    Name = CONFIG.Name,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 30,
 }, playerGui)
 
-local overlay = create("Frame", {
-	Name = "Overlay",
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-	BackgroundTransparency = 0.38,
-	BorderSizePixel = 0,
-}, screen)
-
-local window = create("Frame", {
-	Name = "MainWindow",
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.5),
-	Size = UDim2.fromOffset(850, 560),
-	BackgroundColor3 = COLORS.Background,
-	BorderSizePixel = 0,
-	ClipsDescendants = true,
-}, overlay)
-corner(window, 18)
-stroke(window, COLORS.Border, 0.15)
-create("UISizeConstraint", {
-	MinSize = Vector2.new(260, 300),
-	MaxSize = Vector2.new(980, 720),
-}, window)
-
--- Top bar
-local topbar = create("Frame", {
-	Name = "Topbar",
-	Size = UDim2.new(1, 0, 0, 62),
-	BackgroundColor3 = COLORS.Surface,
-	BorderSizePixel = 0,
-}, window)
-create("Frame", {
-	Position = UDim2.new(0, 0, 1, -1),
-	Size = UDim2.new(1, 0, 0, 1),
-	BackgroundColor3 = COLORS.Border,
-	BackgroundTransparency = 0.45,
-	BorderSizePixel = 0,
-}, topbar)
-
-local logo = create("Frame", {
-	Position = UDim2.fromOffset(18, 13),
-	Size = UDim2.fromOffset(36, 36),
-	BackgroundColor3 = COLORS.Purple,
-	BorderSizePixel = 0,
-}, topbar)
-corner(logo, 11)
-create("UIGradient", {
-	Color = ColorSequence.new(COLORS.PurpleLight, COLORS.Purple),
-	Rotation = 45,
-}, logo)
-create("TextLabel", {
-	Size = UDim2.fromScale(1, 1),
-	BackgroundTransparency = 1,
-	Text = "K",
-	TextColor3 = Color3.new(1, 1, 1),
-	Font = Enum.Font.GothamBold,
-	TextSize = 23,
-}, logo)
-
-local brandName = create("TextLabel", {
-	Position = UDim2.fromOffset(64, 12),
-	Size = UDim2.fromOffset(190, 22),
-	BackgroundTransparency = 1,
-	Text = "KATO HUB",
-	TextColor3 = COLORS.Text,
-	Font = Enum.Font.GothamBold,
-	TextSize = 17,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, topbar)
-local brandSub = create("TextLabel", {
-	Position = UDim2.fromOffset(65, 34),
-	Size = UDim2.fromOffset(200, 15),
-	BackgroundTransparency = 1,
-	Text = "UNIVERSAL GAME HUB",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.GothamMedium,
-	TextSize = 9,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, topbar)
-local version = create("TextLabel", {
-	AnchorPoint = Vector2.new(1, 0.5),
-	Position = UDim2.new(1, -112, 0.5, 0),
-	Size = UDim2.fromOffset(72, 25),
-	BackgroundColor3 = COLORS.Surface3,
-	Text = "VERSION 1.0",
-	TextColor3 = COLORS.PurpleLight,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 9,
-	BorderSizePixel = 0,
-}, topbar)
-corner(version, 8)
-
-local function topButton(name, text, xOffset, textColor)
-	local button = create("TextButton", {
-		Name = name,
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, xOffset, 0.5, 0),
-		Size = UDim2.fromOffset(30, 30),
-		BackgroundColor3 = COLORS.Surface3,
-		Text = text,
-		TextColor3 = textColor or COLORS.Text,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 16,
-		AutoButtonColor = false,
-		BorderSizePixel = 0,
-	}, topbar)
-	corner(button, 9)
-	button.MouseEnter:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.12), {
-			BackgroundColor3 = COLORS.Border,
-		}):Play()
-	end)
-	button.MouseLeave:Connect(function()
-		TweenService:Create(button, TweenInfo.new(0.12), {
-			BackgroundColor3 = COLORS.Surface3,
-		}):Play()
-	end)
-	return button
+local camera = Workspace.CurrentCamera
+local function getViewport()
+    camera = Workspace.CurrentCamera or camera
+    if camera then return camera.ViewportSize end
+    return Vector2.new(900, 650)
 end
 
-local minimizeButton = topButton("Minimize", "−", -54)
-local closeButton = topButton("Close", "×", -16, Color3.fromRGB(255, 132, 145))
+local viewport = getViewport()
+isMobile = viewport.X < 720
+local targetWidth = math.max(300, math.min(1040, viewport.X - (isMobile and 16 or 80)))
+local targetHeight = math.max(420, math.min(690, viewport.Y - (isMobile and 24 or 80)))
 
--- Main body and sidebar
-local body = create("Frame", {
-	Name = "Body",
-	Position = UDim2.fromOffset(0, 62),
-	Size = UDim2.new(1, 0, 1, -62),
-	BackgroundTransparency = 1,
-}, window)
+local main = create("Frame", {
+    Name = "Main",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.fromScale(0.5, 0.5),
+    Size = UDim2.fromOffset(targetWidth, targetHeight),
+    BackgroundColor3 = CONFIG.Background,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, gui)
+corner(main, 18)
+stroke(main, CONFIG.Accent, 0.35, 1.2)
+
+local backgroundGlow = create("Frame", {
+    Name = "TopGlow",
+    Size = UDim2.new(1, 0, 0, 3),
+    BackgroundColor3 = CONFIG.Accent,
+    BorderSizePixel = 0,
+}, main)
+create("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CONFIG.AccentDark),
+        ColorSequenceKeypoint.new(0.5, CONFIG.Accent),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(77, 183, 255)),
+    }),
+}, backgroundGlow)
+
+--// Top bar
+local topbar = create("Frame", {
+    Name = "Topbar",
+    Position = UDim2.fromOffset(0, 3),
+    Size = UDim2.new(1, 0, 0, 58),
+    BackgroundColor3 = CONFIG.Panel,
+    BorderSizePixel = 0,
+}, main)
+
+local logo = create("Frame", {
+    Position = UDim2.fromOffset(14, 10),
+    Size = UDim2.fromOffset(38, 38),
+    BackgroundColor3 = CONFIG.AccentDark,
+    BorderSizePixel = 0,
+}, topbar)
+corner(logo, 11)
+makeLabel(logo, "K", UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 20, CONFIG.Text, true).TextXAlignment = Enum.TextXAlignment.Center
+
+makeLabel(topbar, "KATO HUB", UDim2.new(0, 170, 0, 24), UDim2.fromOffset(62, 8), 16, CONFIG.Text, true)
+makeLabel(topbar, "ROBLOX INTERFACE", UDim2.new(0, 170, 0, 16), UDim2.fromOffset(63, 30), 9, CONFIG.Muted, true)
+
+local versionLabel = makeLabel(topbar, "V" .. CONFIG.Version, UDim2.new(0, 70, 0, 20), UDim2.new(1, -150, 0, 19), 10, CONFIG.Muted, true)
+versionLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+local minimizeButton = makeButton(topbar, "—", UDim2.fromOffset(34, 30), UDim2.new(1, -82, 0, 14), function()
+    isMinimized = true
+    main.Visible = false
+    if reopenButton then reopenButton.Visible = true end
+end, "secondary")
+minimizeButton.TextSize = 16
+
+local closeButton = makeButton(topbar, "×", UDim2.fromOffset(34, 30), UDim2.new(1, -42, 0, 14), function()
+    gui:Destroy()
+end, "secondary")
+closeButton.TextSize = 19
+
+-- Floating reopen button
+reopenButton = create("TextButton", {
+    Name = "ReopenHub",
+    AnchorPoint = Vector2.new(1, 1),
+    Position = UDim2.new(1, -18, 1, -18),
+    Size = UDim2.fromOffset(54, 54),
+    BackgroundColor3 = CONFIG.AccentDark,
+    Text = "K",
+    TextColor3 = CONFIG.Text,
+    TextSize = 22,
+    Font = Enum.Font.GothamBold,
+    Visible = false,
+    AutoButtonColor = false,
+    BorderSizePixel = 0,
+    ZIndex = 60,
+}, gui)
+corner(reopenButton, 18)
+stroke(reopenButton, CONFIG.Accent, 0.2, 1.5)
+reopenButton.Activated:Connect(function()
+    isMinimized = false
+    main.Visible = true
+    reopenButton.Visible = false
+end)
+
+--// Body + navigation
+local sidebarWidth = isMobile and 58 or 184
+local bodyTop = 61
 local sidebar = create("Frame", {
-	Name = "Sidebar",
-	Size = UDim2.new(0, 190, 1, 0),
-	BackgroundColor3 = COLORS.Surface,
-	BorderSizePixel = 0,
-}, body)
-local sidebarTitle = create("TextLabel", {
-	Position = UDim2.fromOffset(18, 18),
-	Size = UDim2.new(1, -30, 0, 18),
-	BackgroundTransparency = 1,
-	Text = "WORKSPACE",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.GothamBold,
-	TextSize = 9,
-	TextXAlignment = Enum.TextXAlignment.Left,
+    Name = "Sidebar",
+    Position = UDim2.fromOffset(0, bodyTop),
+    Size = UDim2.new(0, sidebarWidth, 1, -bodyTop),
+    BackgroundColor3 = CONFIG.Panel,
+    BorderSizePixel = 0,
+}, main)
+
+create("UIListLayout", {
+    Padding = UDim.new(0, 7),
+    SortOrder = Enum.SortOrder.LayoutOrder,
 }, sidebar)
-local navHolder = create("Frame", {
-	Name = "Navigation",
-	Position = UDim2.fromOffset(10, 48),
-	Size = UDim2.new(1, -20, 0, 250),
-	BackgroundTransparency = 1,
+create("UIPadding", {
+    PaddingTop = UDim.new(0, 16),
+    PaddingLeft = UDim.new(0, 8),
+    PaddingRight = UDim.new(0, 8),
 }, sidebar)
-local navLayout = create("UIListLayout", {
-	Padding = UDim.new(0, 7),
-	SortOrder = Enum.SortOrder.LayoutOrder,
-}, navHolder)
-local sidebarStatus = create("TextLabel", {
-	Name = "Status",
-	AnchorPoint = Vector2.new(0, 1),
-	Position = UDim2.new(0, 18, 1, -17),
-	Size = UDim2.new(1, -30, 0, 18),
-	BackgroundTransparency = 1,
-	Text = "●  INTERFACE READY",
-	TextColor3 = COLORS.Green,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 9,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, sidebar)
-local pageHost = create("Frame", {
-	Name = "PageHost",
-	Position = UDim2.new(0, 190, 0, 0),
-	Size = UDim2.new(1, -190, 1, 0),
-	BackgroundTransparency = 1,
-	ClipsDescendants = true,
-}, body)
+
+local content = create("Frame", {
+    Name = "Content",
+    Position = UDim2.new(0, sidebarWidth, 0, bodyTop),
+    Size = UDim2.new(1, -sidebarWidth, 1, -bodyTop),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+}, main)
 
 local pages = {}
 local navButtons = {}
-local isMobile = false
-local isMinimized = false
 
-local function makePage(pageName)
-	local scroll = create("ScrollingFrame", {
-		Name = pageName .. "Page",
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		ScrollBarThickness = 3,
-		ScrollBarImageColor3 = COLORS.Purple,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		Visible = false,
-	}, pageHost)
-	create("UIPadding", {
-		PaddingLeft = UDim.new(0, 22),
-		PaddingRight = UDim.new(0, 22),
-		PaddingTop = UDim.new(0, 22),
-		PaddingBottom = UDim.new(0, 26),
-	}, scroll)
-	create("UIListLayout", {
-		Padding = UDim.new(0, 14),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, scroll)
-	pages[pageName] = scroll
-	return scroll
+local function makePage(key)
+    local page = create("Frame", {
+        Name = key .. "Page",
+        Size = UDim2.fromScale(1, 1),
+        BackgroundTransparency = 1,
+        Visible = false,
+    }, content)
+
+    local scroll = create("ScrollingFrame", {
+        Name = "Scroll",
+        Position = UDim2.fromOffset(12, 10),
+        Size = UDim2.new(1, -24, 1, -18),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = CONFIG.Accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+    }, page)
+    create("UIPadding", {
+        PaddingBottom = UDim.new(0, 16),
+        PaddingRight = UDim.new(0, 3),
+    }, scroll)
+    pages[key] = { frame = page, scroll = scroll }
+    return pages[key]
 end
 
-local function pageTitle(parent, title, subtitle)
-	create("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 30),
-		BackgroundTransparency = 1,
-		Text = title,
-		TextColor3 = COLORS.Text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 24,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, parent)
-	create("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 22),
-		BackgroundTransparency = 1,
-		Text = subtitle,
-		TextColor3 = COLORS.Muted,
-		Font = Enum.Font.Gotham,
-		TextSize = 12,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, parent)
+for _, key in ipairs({ "home", "games", "favorites", "recent", "settings" }) do
+    makePage(key)
 end
 
-local function sectionTitle(parent, title, note)
-	local row = create("Frame", {
-		Size = UDim2.new(1, 0, 0, 24),
-		BackgroundTransparency = 1,
-	}, parent)
-	create("TextLabel", {
-		Size = UDim2.new(0.7, 0, 1, 0),
-		BackgroundTransparency = 1,
-		Text = title,
-		TextColor3 = COLORS.Text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 14,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, row)
-	if note then
-		create("TextLabel", {
-			AnchorPoint = Vector2.new(1, 0),
-			Position = UDim2.new(1, 0, 0, 0),
-			Size = UDim2.new(0.3, 0, 1, 0),
-			BackgroundTransparency = 1,
-			Text = note,
-			TextColor3 = COLORS.Muted,
-			Font = Enum.Font.Gotham,
-			TextSize = 10,
-			TextXAlignment = Enum.TextXAlignment.Right,
-		}, row)
-	end
+local function makeNavButton(key, iconText, order)
+    local button = create("TextButton", {
+        Name = key .. "Nav",
+        LayoutOrder = order,
+        Size = UDim2.new(1, 0, 0, 43),
+        BackgroundColor3 = CONFIG.Panel,
+        Text = "",
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+    }, sidebar)
+    corner(button, 10)
+    local icon = makeLabel(button, iconText, UDim2.fromOffset(28, 34), UDim2.fromOffset(7, 4), 17, CONFIG.Muted, true)
+    icon.TextXAlignment = Enum.TextXAlignment.Center
+    local title = makeLabel(button, tr(key), UDim2.new(1, -43, 1, 0), UDim2.fromOffset(42, 0), 11, CONFIG.Muted, true)
+    title.Name = "Title"
+    if isMobile then
+        icon.Position = UDim2.new(0.5, -14, 0, 4)
+        title.Visible = false
+    end
+    button.Activated:Connect(function()
+        showPage(key)
+    end)
+    navButtons[key] = { button = button, icon = icon, title = title }
 end
 
-local function makeHero(parent)
-	local hero = create("Frame", {
-		Name = "WelcomeBanner",
-		Size = UDim2.new(1, 0, 0, 144),
-		BackgroundColor3 = COLORS.Surface2,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, parent)
-	corner(hero, 16)
-	stroke(hero, COLORS.Border, 0.25)
-	create("UIGradient", {
-		Color = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(59, 39, 104)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(29, 25, 43)),
-		}),
-		Rotation = 0,
-	}, hero)
-	local glow = create("Frame", {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, 28, 0.5, 0),
-		Size = UDim2.fromOffset(190, 190),
-		BackgroundColor3 = COLORS.Purple,
-		BackgroundTransparency = 0.78,
-		BorderSizePixel = 0,
-	}, hero)
-	corner(glow, 100)
-	create("TextLabel", {
-		Position = UDim2.fromOffset(20, 15),
-		Size = UDim2.new(1, -40, 0, 22),
-		BackgroundTransparency = 1,
-		Text = "WELCOME TO KATO HUB",
-		TextColor3 = COLORS.PurpleLight,
-		Font = Enum.Font.GothamBold,
-		TextSize = 10,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, hero)
-	create("TextLabel", {
-		Position = UDim2.fromOffset(20, 39),
-		Size = UDim2.new(1, -40, 0, 34),
-		BackgroundTransparency = 1,
-		Text = "Your games. Your space.",
-		TextColor3 = COLORS.Text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 22,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, hero)
-	create("TextLabel", {
-		Position = UDim2.fromOffset(20, 76),
-		Size = UDim2.new(1, -40, 0, 22),
-		BackgroundTransparency = 1,
-		Text = "Choose a game menu to open its separate interface.",
-		TextColor3 = Color3.fromRGB(208, 198, 226),
-		Font = Enum.Font.Gotham,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, hero)
-	local explore = create("TextButton", {
-		Position = UDim2.fromOffset(20, 108),
-		Size = UDim2.fromOffset(118, 26),
-		BackgroundColor3 = COLORS.Purple,
-		Text = "EXPLORE GAMES",
-		TextColor3 = Color3.new(1, 1, 1),
-		Font = Enum.Font.GothamBold,
-		TextSize = 9,
-		AutoButtonColor = false,
-		BorderSizePixel = 0,
-	}, hero)
-	corner(explore, 8)
-	return explore
+--// Page rendering
+local function clearScroll(scroll)
+    for _, child in ipairs(scroll:GetChildren()) do
+        if not child:IsA("UIPadding") then
+            child:Destroy()
+        end
+    end
 end
 
-local function makeGameCard(parent, game)
-	local card = create("Frame", {
-		Name = game.Id .. "Card",
-		BackgroundColor3 = COLORS.Surface2,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, parent)
-	corner(card, 14)
-	stroke(card, COLORS.Border, 0.2)
-
-	local art = create("Frame", {
-		Name = "Artwork",
-		Position = UDim2.fromOffset(8, 8),
-		Size = UDim2.new(1, -16, 0, 92),
-		BackgroundColor3 = Color3.fromRGB(54, 40, 86),
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-	}, card)
-	corner(art, 10)
-	create("UIGradient", {
-		Color = ColorSequence.new(COLORS.Purple, Color3.fromRGB(42, 34, 62)),
-		Rotation = 20,
-	}, art)
-	if game.Image and game.Image \~= "" then
-		create("ImageLabel", {
-			Name = "GameImage",
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Image = game.Image,
-			ScaleType = Enum.ScaleType.Crop,
-		}, art)
-	else
-		create("TextLabel", {
-			Size = UDim2.fromScale(1, 1),
-			BackgroundTransparency = 1,
-			Text = game.ShortName,
-			TextColor3 = Color3.fromRGB(241, 232, 255),
-			Font = Enum.Font.GothamBlack,
-			TextSize = 30,
-		}, art)
-	end
-
-	create("TextLabel", {
-		Position = UDim2.fromOffset(12, 108),
-		Size = UDim2.new(1, -24, 0, 13),
-		BackgroundTransparency = 1,
-		Text = game.Category,
-		TextColor3 = COLORS.PurpleLight,
-		Font = Enum.Font.GothamBold,
-		TextSize = 8,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, card)
-	create("TextLabel", {
-		Position = UDim2.fromOffset(12, 122),
-		Size = UDim2.new(1, -24, 0, 21),
-		BackgroundTransparency = 1,
-		Text = game.Name,
-		TextColor3 = COLORS.Text,
-		Font = Enum.Font.GothamBold,
-		TextSize = 12,
-		TextTruncate = Enum.TextTruncate.AtEnd,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, card)
-	create("TextLabel", {
-		Position = UDim2.fromOffset(12, 147),
-		Size = UDim2.new(1, -24, 0, 22),
-		BackgroundTransparency = 1,
-		Text = game.Description,
-		TextColor3 = COLORS.Muted,
-		Font = Enum.Font.Gotham,
-		TextSize = 9,
-		TextWrapped = true,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextYAlignment = Enum.TextYAlignment.Top,
-	}, card)
-
-	local openButton = create("TextButton", {
-		Name = "OpenButton",
-		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 12, 1, -9),
-		Size = UDim2.new(1, -24, 0, 25),
-		BackgroundColor3 = game.Enabled and COLORS.Purple or COLORS.Surface3,
-		Text = game.Enabled and "OPEN MENU  →" or "COMING SOON",
-		TextColor3 = game.Enabled and Color3.new(1, 1, 1) or COLORS.Muted,
-		Font = Enum.Font.GothamBold,
-		TextSize = 9,
-		AutoButtonColor = false,
-		Active = game.Enabled,
-		BorderSizePixel = 0,
-	}, card)
-	corner(openButton, 8)
-
-	if game.Enabled then
-		openButton.MouseEnter:Connect(function()
-			TweenService:Create(openButton, TweenInfo.new(0.12), {
-				BackgroundColor3 = COLORS.PurpleLight,
-			}):Play()
-		end)
-		openButton.MouseLeave:Connect(function()
-			TweenService:Create(openButton, TweenInfo.new(0.12), {
-				BackgroundColor3 = COLORS.Purple,
-			}):Play()
-		end)
-
-		openButton.Activated:Connect(function()
-			selectedEvent:Fire(game.Id, game.Name)
-
-			-- ==============================
-			-- TSB: Load external menu
-			-- ==============================
-			if game.Id == "TSB" then
-				screen.Enabled = false -- Ẩn KATO HUB
-
-				local success, err = pcall(function()
-					loadstring(game:HttpGet("https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game%20Menu%201"))()
-				end)
-
-				if not success then
-					warn("[KATO HUB] Không thể load TSB Menu:", err)
-					screen.Enabled = true -- Mở lại nếu lỗi
-				end
-			end
-		end)
-	end
-
-	return card
+local function addVerticalLayout(scroll, spacing)
+    return create("UIListLayout", {
+        Padding = UDim.new(0, spacing or 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, scroll)
 end
 
-local function makeCardGrid(parent)
-	local grid = create("Frame", {
-		Name = "GameCards",
-		Size = UDim2.new(1, 0, 0, 206),
-		BackgroundTransparency = 1,
-	}, parent)
-	local layout = create("UIGridLayout", {
-		CellSize = UDim2.new(0.5, -7, 0, 206),
-		CellPadding = UDim2.fromOffset(12, 10),
-		SortOrder = Enum.SortOrder.LayoutOrder,
-	}, grid)
-	for _, game in ipairs(GAMES) do
-		makeGameCard(grid, game)
-	end
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
-	end)
-	return grid, layout
+local function addPageHeading(scroll, titleText, subtitleText)
+    local heading = create("Frame", {
+        LayoutOrder = 1,
+        Size = UDim2.new(1, 0, 0, 54),
+        BackgroundTransparency = 1,
+    }, scroll)
+    makeLabel(heading, titleText, UDim2.new(1, 0, 0, 27), UDim2.fromOffset(0, 0), 20, CONFIG.Text, true)
+    makeLabel(heading, subtitleText, UDim2.new(1, 0, 0, 20), UDim2.fromOffset(0, 27), 11, CONFIG.Muted, false)
+    return heading
 end
 
--- Home page
-local homePage = makePage("Home")
-pageTitle(homePage, "Home", "Your KATO HUB dashboard.")
-local exploreButton = makeHero(homePage)
-sectionTitle(homePage, "SUPPORTED GAMES", "SELECT TO OPEN")
-local homeGrid, homeGridLayout = makeCardGrid(homePage)
+local function makeGameCard(parent, gameInfo, order)
+    local card = create("Frame", {
+        Name = "Game_" .. gameInfo.id,
+        LayoutOrder = order or 1,
+        Size = UDim2.new(1, -5, 0, isMobile and 116 or 108),
+        BackgroundColor3 = CONFIG.Panel,
+        BorderSizePixel = 0,
+    }, parent)
+    corner(card, 13)
+    stroke(card, Color3.fromRGB(78, 68, 102), 0.72, 1)
 
--- Game selector page
-local selectorPage = makePage("Game Selector")
-pageTitle(selectorPage, "Game Selector", "Browse the game menus available in this hub.")
-local searchBox = create("TextBox", {
-	Name = "SearchGames",
-	Size = UDim2.new(1, 0, 0, 38),
-	BackgroundColor3 = COLORS.Surface2,
-	PlaceholderText = "Search games...",
-	PlaceholderColor3 = COLORS.Muted,
-	Text = "",
-	TextColor3 = COLORS.Text,
-	Font = Enum.Font.Gotham,
-	TextSize = 12,
-	ClearTextOnFocus = false,
-	BorderSizePixel = 0,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, selectorPage)
-corner(searchBox, 10)
-stroke(searchBox, COLORS.Border, 0.35)
-create("UIPadding", {
-	PaddingLeft = UDim.new(0, 12),
-	PaddingRight = UDim.new(0, 12),
-}, searchBox)
-sectionTitle(selectorPage, "ALL GAMES", "GAME LIBRARY")
-local selectorGrid, selectorGridLayout = makeCardGrid(selectorPage)
+    local iconSize = isMobile and 45 or 62
+    local iconPanel = create("Frame", {
+        Position = UDim2.fromOffset(10, 10),
+        Size = UDim2.fromOffset(iconSize, iconSize),
+        BackgroundColor3 = CONFIG.AccentDark,
+        BorderSizePixel = 0,
+    }, card)
+    corner(iconPanel, 11)
+    makeLabel(iconPanel, gameInfo.icon or "✦", UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), isMobile and 20 or 25, CONFIG.Text, true).TextXAlignment = Enum.TextXAlignment.Center
 
--- Favorites page
-local favoritesPage = makePage("Favorites")
-pageTitle(favoritesPage, "Favorites", "Your pinned game menus will appear here.")
-local favoritesEmpty = create("Frame", {
-	Size = UDim2.new(1, 0, 0, 150),
-	BackgroundColor3 = COLORS.Surface2,
-	BorderSizePixel = 0,
-}, favoritesPage)
-corner(favoritesEmpty, 14)
-create("TextLabel", {
-	Size = UDim2.fromScale(1, 1),
-	BackgroundTransparency = 1,
-	Text = "☆\nNo favorites yet",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 15,
-}, favoritesEmpty)
+    local textX = iconSize + 20
+    local rightSpace = isMobile and 78 or 104
+    local textWidth = UDim2.new(1, -(textX + rightSpace), 0, 22)
+    makeLabel(card, gameInfo.name, textWidth, UDim2.fromOffset(textX, 10), isMobile and 11 or 13, CONFIG.Text, true)
+    makeLabel(card, string.upper(gameInfo.category or "GAME") .. "  •  " .. (gameInfo.status or "READY"), textWidth, UDim2.fromOffset(textX, 33), 9, CONFIG.Accent, true)
 
--- Recently used page
-local recentPage = makePage("Recently Used")
-pageTitle(recentPage, "Recently Used", "Game menus you open can be listed here.")
-local recentEmpty = create("Frame", {
-	Size = UDim2.new(1, 0, 0, 150),
-	BackgroundColor3 = COLORS.Surface2,
-	BorderSizePixel = 0,
-}, recentPage)
-corner(recentEmpty, 14)
-create("TextLabel", {
-	Size = UDim2.fromScale(1, 1),
-	BackgroundTransparency = 1,
-	Text = "◷\nNothing opened yet",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 15,
-}, recentEmpty)
+    local desc = makeLabel(card, gameInfo.description or "", UDim2.new(1, -(textX + 12), 0, 28), UDim2.fromOffset(textX, 52), 10, CONFIG.Muted, false)
+    desc.TextWrapped = true
+    desc.TextYAlignment = Enum.TextYAlignment.Top
 
--- Settings page
-local settingsPage = makePage("Settings")
-pageTitle(settingsPage, "Settings", "KATO HUB interface preferences.")
-local settingsPanel = create("Frame", {
-	Size = UDim2.new(1, 0, 0, 154),
-	BackgroundColor3 = COLORS.Surface2,
-	BorderSizePixel = 0,
-}, settingsPage)
-corner(settingsPanel, 14)
-create("UIPadding", {
-	PaddingLeft = UDim.new(0, 16),
-	PaddingRight = UDim.new(0, 16),
-	PaddingTop = UDim.new(0, 13),
-}, settingsPanel)
-create("TextLabel", {
-	Size = UDim2.new(1, 0, 0, 23),
-	BackgroundTransparency = 1,
-	Text = "Appearance",
-	TextColor3 = COLORS.Text,
-	Font = Enum.Font.GothamBold,
-	TextSize = 13,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, settingsPanel)
-create("TextLabel", {
-	Position = UDim2.fromOffset(0, 27),
-	Size = UDim2.new(1, 0, 0, 20),
-	BackgroundTransparency = 1,
-	Text = "Theme",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.Gotham,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, settingsPanel)
-create("TextLabel", {
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, 0, 0, 27),
-	Size = UDim2.fromOffset(120, 20),
-	BackgroundTransparency = 1,
-	Text = "Dark / Purple",
-	TextColor3 = COLORS.PurpleLight,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Right,
-}, settingsPanel)
-create("TextLabel", {
-	Position = UDim2.fromOffset(0, 57),
-	Size = UDim2.new(1, 0, 0, 20),
-	BackgroundTransparency = 1,
-	Text = "Layout",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.Gotham,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, settingsPanel)
-create("TextLabel", {
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, 0, 0, 57),
-	Size = UDim2.fromOffset(120, 20),
-	BackgroundTransparency = 1,
-	Text = "Auto responsive",
-	TextColor3 = COLORS.PurpleLight,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Right,
-}, settingsPanel)
-local languageLabel = create("TextLabel", {
-	Position = UDim2.fromOffset(0, 87),
-	Size = UDim2.new(1, -112, 0, 22),
-	BackgroundTransparency = 1,
-	Text = "Language",
-	TextColor3 = COLORS.Muted,
-	Font = Enum.Font.Gotham,
-	TextSize = 11,
-	TextXAlignment = Enum.TextXAlignment.Left,
-}, settingsPanel)
-local languageButton = create("TextButton", {
-	Name = "LanguageToggle",
-	AnchorPoint = Vector2.new(1, 0),
-	Position = UDim2.new(1, 0, 0, 84),
-	Size = UDim2.fromOffset(92, 28),
-	BackgroundColor3 = COLORS.Purple,
-	Text = "ENGLISH  ▾",
-	TextColor3 = Color3.new(1, 1, 1),
-	Font = Enum.Font.GothamBold,
-	TextSize = 10,
-	AutoButtonColor = true,
-	BorderSizePixel = 0,
-}, settingsPanel)
-corner(languageButton, 8)
+    local favoriteButton
+    favoriteButton = makeButton(card, favorites[gameInfo.id] and "★" or "☆", UDim2.fromOffset(30, 28), UDim2.new(1, -40, 0, 10), function()
+        favorites[gameInfo.id] = not favorites[gameInfo.id]
+        if not favorites[gameInfo.id] then
+            favorites[gameInfo.id] = nil
+        end
+        favoriteButton.Text = favorites[gameInfo.id] and "★" or "☆"
+        favoriteButton.TextColor3 = favorites[gameInfo.id] and CONFIG.Accent or CONFIG.Muted
+        if currentPage == "favorites" then
+            task.defer(function() showPage("favorites") end)
+        end
+    end, "secondary")
+    favoriteButton.Name = "FavoriteButton"
+    favoriteButton.TextSize = 17
+    favoriteButton.TextColor3 = favorites[gameInfo.id] and CONFIG.Accent or CONFIG.Muted
 
--- Navigation
-local NAV_ITEMS = {
-	{ Name = "Home", Icon = "⌂" },
-	{ Name = "Game Selector", Icon = "▦" },
-	{ Name = "Favorites", Icon = "☆" },
-	{ Name = "Recently Used", Icon = "◷" },
-	{ Name = "Settings", Icon = "⚙" },
-}
+    local openButton = makeButton(card, tr("open"), UDim2.fromOffset(isMobile and 62 or 82, 27), UDim2.new(1, isMobile and -72 or -92, 1, -37), function()
+        launchGame(gameInfo)
+    end, "primary")
+    openButton.TextSize = 10
+    if gameInfo.status == "SOON" then
+        openButton.BackgroundColor3 = CONFIG.PanelLight
+        openButton.TextColor3 = CONFIG.Muted
+    end
 
-local function setActivePage(pageName)
-	if not pages[pageName] then
-		return
-	end
-	for name, page in pairs(pages) do
-		page.Visible = (name == pageName)
-	end
-	for name, button in pairs(navButtons) do
-		local selected = (name == pageName)
-		button.BackgroundColor3 = selected and COLORS.Surface3 or COLORS.Surface
-		local accent = button:FindFirstChild("Accent")
-		local icon = button:FindFirstChild("Icon")
-		local label = button:FindFirstChild("Label")
-		if accent then accent.Visible = selected end
-		if icon then icon.TextColor3 = selected and COLORS.PurpleLight or COLORS.Muted end
-		if label then label.TextColor3 = selected and COLORS.Text or COLORS.Muted end
-	end
+    return card
 end
 
-for index, item in ipairs(NAV_ITEMS) do
-	local button = create("TextButton", {
-		Name = item.Name,
-		Size = UDim2.new(1, 0, 0, 43),
-		BackgroundColor3 = COLORS.Surface,
-		Text = "",
-		AutoButtonColor = false,
-		BorderSizePixel = 0,
-		LayoutOrder = index,
-	}, navHolder)
-	corner(button, 10)
-	create("Frame", {
-		Name = "Accent",
-		Position = UDim2.fromOffset(0, 8),
-		Size = UDim2.new(0, 3, 1, -16),
-		BackgroundColor3 = COLORS.PurpleLight,
-		BorderSizePixel = 0,
-		Visible = false,
-	}, button)
-	create("TextLabel", {
-		Name = "Icon",
-		Position = UDim2.fromOffset(7, 0),
-		Size = UDim2.fromOffset(34, 43),
-		BackgroundTransparency = 1,
-		Text = item.Icon,
-		TextColor3 = COLORS.Muted,
-		Font = Enum.Font.GothamBold,
-		TextSize = 17,
-	}, button)
-	create("TextLabel", {
-		Name = "Label",
-		Position = UDim2.fromOffset(43, 0),
-		Size = UDim2.new(1, -48, 1, 0),
-		BackgroundTransparency = 1,
-		Text = item.Name,
-		TextColor3 = COLORS.Muted,
-		Font = Enum.Font.GothamSemibold,
-		TextSize = 11,
-		TextXAlignment = Enum.TextXAlignment.Left,
-	}, button)
-	button.Activated:Connect(function()
-		setActivePage(item.Name)
-	end)
-	navButtons[item.Name] = button
+local function getFilteredGames(source)
+    local filtered = {}
+    local query = currentPage == "games" and string.lower(currentSearch or "") or ""
+    for _, gameInfo in ipairs(source) do
+        local haystack = string.lower((gameInfo.name or "") .. " " .. (gameInfo.category or "") .. " " .. (gameInfo.description or ""))
+        if query == "" or string.find(haystack, query, 1, true) then
+            table.insert(filtered, gameInfo)
+        end
+    end
+    return filtered
 end
 
-local function updateGrid(grid, layout)
-	if isMobile then
-		layout.CellSize = UDim2.new(1, 0, 0, 196)
-		layout.CellPadding = UDim2.fromOffset(0, 10)
-	else
-		layout.CellSize = UDim2.new(0.5, -6, 0, 206)
-		layout.CellPadding = UDim2.fromOffset(12, 10)
-	end
-	task.defer(function()
-		grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
-	end)
+local function addSearchBox(scroll, order)
+    local wrap = create("Frame", {
+        LayoutOrder = order or 2,
+        Size = UDim2.new(1, -5, 0, 40),
+        BackgroundColor3 = CONFIG.PanelLight,
+        BorderSizePixel = 0,
+    }, scroll)
+    corner(wrap, 10)
+    stroke(wrap, Color3.fromRGB(85, 76, 111), 0.72, 1)
+    makeLabel(wrap, "⌕", UDim2.fromOffset(30, 40), UDim2.fromOffset(9, 0), 21, CONFIG.Muted, true)
+    local box = create("TextBox", {
+        Name = "SearchBox",
+        Position = UDim2.fromOffset(38, 0),
+        Size = UDim2.new(1, -48, 1, 0),
+        BackgroundTransparency = 1,
+        ClearTextOnFocus = false,
+        PlaceholderText = tr("search"),
+        PlaceholderColor3 = CONFIG.Muted,
+        Text = currentSearch,
+        TextColor3 = CONFIG.Text,
+        Font = Enum.Font.Gotham,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    }, wrap)
+    box.FocusLost:Connect(function()
+        currentSearch = box.Text
+        if currentPage == "games" then
+            task.defer(function() showPage("games") end)
+        end
+    end)
+    return box
 end
 
-local function refreshLayout()
-	local camera = Workspace.CurrentCamera
-	local viewport = camera and camera.ViewportSize or Vector2.new(1000, 700)
-	isMobile = viewport.X < 720
-
-	if isMinimized then
-		return
-	end
-
-	local width
-	local height
-	if isMobile then
-		width = math.max(260, math.min(viewport.X - 28, 410))
-		height = math.max(300, math.min(viewport.Y - 110, 540))
-	else
-		width = math.min(850, viewport.X - 80)
-		height = math.min(560, viewport.Y - 80)
-		width = math.max(620, width)
-		height = math.max(420, height)
-	end
-
-	window.Size = UDim2.fromOffset(width, height)
-	window.Position = UDim2.fromScale(0.5, 0.5)
-	topbar.Size = UDim2.new(1, 0, 0, isMobile and 54 or 62)
-	body.Position = UDim2.fromOffset(0, isMobile and 54 or 62)
-	body.Size = UDim2.new(1, 0, 1, -(isMobile and 54 or 62))
-
-	if isMobile then
-		sidebar.Size = UDim2.new(0, 48, 1, 0)
-		pageHost.Position = UDim2.new(0, 48, 0, 0)
-		pageHost.Size = UDim2.new(1, -48, 1, 0)
-		sidebarTitle.Visible = false
-		sidebarStatus.Visible = false
-		brandSub.Visible = false
-		brandName.Position = UDim2.fromOffset(58, 14)
-		brandName.Size = UDim2.fromOffset(115, 22)
-		brandName.TextSize = 15
-		logo.Position = UDim2.fromOffset(12, 9)
-		logo.Size = UDim2.fromOffset(34, 34)
-		version.Visible = false
-
-		for _, button in pairs(navButtons) do
-			button.Size = UDim2.new(1, -8, 0, 40)
-			button.Label.Visible = false
-			button.Icon.Position = UDim2.fromOffset(0, 0)
-			button.Icon.Size = UDim2.fromScale(1, 1)
-			button.Icon.TextSize = 16
-		end
-		navHolder.Position = UDim2.fromOffset(4, 14)
-		navHolder.Size = UDim2.new(1, -8, 0, 235)
-		navLayout.Padding = UDim.new(0, 7)
-	else
-		sidebar.Size = UDim2.new(0, 178, 1, 0)
-		pageHost.Position = UDim2.new(0, 178, 0, 0)
-		pageHost.Size = UDim2.new(1, -178, 1, 0)
-		sidebarTitle.Visible = true
-		sidebarStatus.Visible = true
-		brandSub.Visible = true
-		brandName.Position = UDim2.fromOffset(64, 12)
-		brandName.Size = UDim2.fromOffset(180, 22)
-		brandName.TextSize = 17
-		logo.Position = UDim2.fromOffset(18, 13)
-		logo.Size = UDim2.fromOffset(36, 36)
-		version.Visible = true
-
-		for _, button in pairs(navButtons) do
-			button.Size = UDim2.new(1, 0, 0, 42)
-			button.Label.Visible = true
-			button.Icon.Position = UDim2.fromOffset(7, 0)
-			button.Icon.Size = UDim2.fromOffset(34, 42)
-			button.Icon.TextSize = 17
-		end
-		navHolder.Position = UDim2.fromOffset(10, 48)
-		navHolder.Size = UDim2.new(1, -20, 0, 245)
-		navLayout.Padding = UDim.new(0, 7)
-	end
-
-	for _, page in pairs(pages) do
-		local padding = page:FindFirstChildOfClass("UIPadding")
-		if padding then
-			local side = isMobile and 12 or 20
-			padding.PaddingLeft = UDim.new(0, side)
-			padding.PaddingRight = UDim.new(0, side)
-			padding.PaddingTop = UDim.new(0, isMobile and 14 or 20)
-			padding.PaddingBottom = UDim.new(0, 22)
-		end
-	end
-
-	updateGrid(homeGrid, homeGridLayout)
-	updateGrid(selectorGrid, selectorGridLayout)
+local function addEmptyState(scroll, title, detail, order)
+    local empty = create("Frame", {
+        LayoutOrder = order or 3,
+        Size = UDim2.new(1, -5, 0, 116),
+        BackgroundColor3 = CONFIG.Panel,
+        BorderSizePixel = 0,
+    }, scroll)
+    corner(empty, 12)
+    makeLabel(empty, "✦", UDim2.new(1, 0, 0, 34), UDim2.fromOffset(0, 16), 24, CONFIG.Accent, true).TextXAlignment = Enum.TextXAlignment.Center
+    local titleLabel = makeLabel(empty, title, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(10, 53), 12, CONFIG.Text, true)
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Center
+    local detailLabel = makeLabel(empty, detail, UDim2.new(1, -20, 0, 22), UDim2.fromOffset(10, 76), 10, CONFIG.Muted, false)
+    detailLabel.TextXAlignment = Enum.TextXAlignment.Center
 end
 
--- Drag
+local function renderHome(scroll)
+    addPageHeading(scroll, tr("home"), tr("tagline"))
+
+    local hero = create("Frame", {
+        LayoutOrder = 2,
+        Size = UDim2.new(1, -5, 0, isMobile and 142 or 154),
+        BackgroundColor3 = CONFIG.AccentDark,
+        BorderSizePixel = 0,
+        ClipsDescendants = true,
+    }, scroll)
+    corner(hero, 15)
+    create("UIGradient", {
+        Rotation = 12,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(64, 37, 110)),
+            ColorSequenceKeypoint.new(0.55, Color3.fromRGB(104, 63, 174)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(43, 89, 130)),
+        }),
+    }, hero)
+    makeLabel(hero, tr("welcome"), UDim2.new(1, -24, 0, 26), UDim2.fromOffset(16, 18), isMobile and 13 or 16, CONFIG.Text, true)
+    local heroSub = makeLabel(hero, tr("tagline"), UDim2.new(1, -30, 0, 36), UDim2.fromOffset(16, 49), 10, Color3.fromRGB(233, 224, 255), false)
+    heroSub.TextWrapped = true
+    makeButton(hero, tr("browse"), UDim2.fromOffset(isMobile and 112 or 132, 30), UDim2.fromOffset(16, isMobile and 101 or 108), function()
+        currentSearch = ""
+        showPage("games")
+    end, "primary")
+
+    local section = create("Frame", {
+        LayoutOrder = 3,
+        Size = UDim2.new(1, -5, 0, 25),
+        BackgroundTransparency = 1,
+    }, scroll)
+    makeLabel(section, tr("featured"), UDim2.fromScale(1, 1), UDim2.fromScale(0, 0), 11, CONFIG.Muted, true)
+
+    for index, gameInfo in ipairs(GAMES) do
+        if index > 2 then break end
+        makeGameCard(scroll, gameInfo, 3 + index)
+    end
+end
+
+local function renderGameCollection(key, scroll)
+    local headingTitle = key == "games" and tr("allGames") or (key == "favorites" and tr("favorites") or tr("recent"))
+    addPageHeading(scroll, headingTitle, tr("tagline"))
+
+    local source = {}
+    if key == "games" then
+        source = GAMES
+        addSearchBox(scroll, 2)
+    elseif key == "favorites" then
+        for _, gameInfo in ipairs(GAMES) do
+            if favorites[gameInfo.id] then table.insert(source, gameInfo) end
+        end
+    elseif key == "recent" then
+        for _, id in ipairs(recentlyUsed) do
+            local gameInfo = getGameById(id)
+            if gameInfo then table.insert(source, gameInfo) end
+        end
+    end
+
+    local filtered = getFilteredGames(source)
+    local startOrder = key == "games" and 3 or 2
+    if #filtered == 0 then
+        if key == "favorites" then
+            addEmptyState(scroll, tr("noFavorites"), tr("emptyHint"), startOrder)
+        elseif key == "recent" then
+            addEmptyState(scroll, tr("noRecent"), tr("emptyHint"), startOrder)
+        else
+            addEmptyState(scroll, tr("noResults"), tr("emptyHint"), startOrder)
+        end
+        return
+    end
+
+    for index, gameInfo in ipairs(filtered) do
+        makeGameCard(scroll, gameInfo, startOrder + index - 1)
+    end
+end
+
+local function settingRow(parent, title, description, order)
+    local row = create("Frame", {
+        LayoutOrder = order,
+        Size = UDim2.new(1, -5, 0, 66),
+        BackgroundColor3 = CONFIG.Panel,
+        BorderSizePixel = 0,
+    }, parent)
+    corner(row, 11)
+    makeLabel(row, title, UDim2.new(1, -18, 0, 23), UDim2.fromOffset(12, 8), 12, CONFIG.Text, true)
+    makeLabel(row, description, UDim2.new(1, -18, 0, 22), UDim2.fromOffset(12, 32), 10, CONFIG.Muted, false)
+    return row
+end
+
+local function renderSettings(scroll)
+    addPageHeading(scroll, tr("settings"), tr("settingsTitle"))
+    local languageRow = settingRow(scroll, tr("language"), tr("vietnamese") .. " / " .. tr("english"), 2)
+    makeButton(languageRow, "VI", UDim2.fromOffset(42, 28), UDim2.new(1, -100, 0, 19), function()
+        language = "VI"
+        showPage("settings")
+        updateNavigationLabels()
+    end, language == "VI" and "primary" or "secondary")
+    makeButton(languageRow, "EN", UDim2.fromOffset(42, 28), UDim2.new(1, -52, 0, 19), function()
+        language = "EN"
+        showPage("settings")
+        updateNavigationLabels()
+    end, language == "EN" and "primary" or "secondary")
+
+    local appearance = settingRow(scroll, tr("appearance"), tr("themeInfo"), 3)
+    local colorDot = create("Frame", {
+        Position = UDim2.new(1, -39, 0, 18),
+        Size = UDim2.fromOffset(22, 22),
+        BackgroundColor3 = CONFIG.Accent,
+        BorderSizePixel = 0,
+    }, appearance)
+    corner(colorDot, 11)
+
+    local about = settingRow(scroll, tr("about"), "KATO HUB 2.0 (Executor)", 4)
+    makeLabel(about, "V" .. CONFIG.Version, UDim2.fromOffset(65, 30), UDim2.new(1, -78, 0, 18), 10, CONFIG.Accent, true).TextXAlignment = Enum.TextXAlignment.Right
+
+    local info = create("Frame", {
+        LayoutOrder = 5,
+        Size = UDim2.new(1, -5, 0, 72),
+        BackgroundColor3 = CONFIG.PanelLight,
+        BorderSizePixel = 0,
+    }, scroll)
+    corner(info, 11)
+    local hint = makeLabel(info, tr("moduleHint"), UDim2.new(1, -22, 1, -14), UDim2.fromOffset(11, 7), 10, CONFIG.Muted, false)
+    hint.TextWrapped = true
+end
+
+renderPage = function(key)
+    local pageData = pages[key]
+    if not pageData then return end
+    local scroll = pageData.scroll
+    clearScroll(scroll)
+    addVerticalLayout(scroll, 10)
+
+    if key == "home" then
+        renderHome(scroll)
+    elseif key == "games" or key == "favorites" or key == "recent" then
+        renderGameCollection(key, scroll)
+    elseif key == "settings" then
+        renderSettings(scroll)
+    end
+end
+
+updateNavigationLabels = function()
+    for key, nav in pairs(navButtons) do
+        if nav.title then nav.title.Text = tr(key) end
+    end
+end
+
+showPage = function(key)
+    if not pages[key] then return end
+    currentPage = key
+    for pageKey, pageData in pairs(pages) do
+        pageData.frame.Visible = pageKey == key
+    end
+    for navKey, nav in pairs(navButtons) do
+        local active = navKey == key
+        tween(nav.button, 0.15, {
+            BackgroundColor3 = active and CONFIG.AccentDark or CONFIG.Panel,
+        })
+        nav.icon.TextColor3 = active and CONFIG.Text or CONFIG.Muted
+        if nav.title then
+            nav.title.TextColor3 = active and CONFIG.Text or CONFIG.Muted
+        end
+    end
+    renderPage(key)
+end
+
+--// Build navigation
+makeNavButton("home", "⌂", 1)
+makeNavButton("games", "▦", 2)
+makeNavButton("favorites", "★", 3)
+makeNavButton("recent", "◷", 4)
+makeNavButton("settings", "⚙", 5)
+
+--// Responsive
+local function updateResponsiveLayout()
+    local size = getViewport()
+    local wasMobile = isMobile
+    isMobile = size.X < 720
+    local width = math.max(300, math.min(1040, size.X - (isMobile and 16 or 80)))
+    local height = math.max(420, math.min(690, size.Y - (isMobile and 24 or 80)))
+    local newSidebarWidth = isMobile and 58 or 184
+    tween(main, 0.18, { Size = UDim2.fromOffset(width, height) })
+    if newSidebarWidth \~= sidebarWidth then
+        sidebarWidth = newSidebarWidth
+        sidebar.Size = UDim2.new(0, sidebarWidth, 1, -bodyTop)
+        content.Position = UDim2.new(0, sidebarWidth, 0, bodyTop)
+        content.Size = UDim2.new(1, -sidebarWidth, 1, -bodyTop)
+        for _, nav in pairs(navButtons) do
+            if nav.title then nav.title.Visible = not isMobile end
+            nav.icon.Position = isMobile and UDim2.new(0.5, -14, 0, 4) or UDim2.fromOffset(7, 4)
+        end
+    end
+    if wasMobile \~= isMobile then
+        task.defer(function() showPage(currentPage) end)
+    end
+end
+
+local viewportConnection
+local function connectViewport()
+    if viewportConnection then viewportConnection:Disconnect() end
+    local currentCamera = Workspace.CurrentCamera
+    if currentCamera then
+        viewportConnection = currentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(updateResponsiveLayout)
+    end
+end
+connectViewport()
+Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(connectViewport)
+
+--// Drag
 local dragging = false
-local dragStart = nil
-local startPosition = nil
-
-local function isTopbarButton(target)
-	return target == minimizeButton or target == closeButton
-end
+local dragStart
+local startPosition
 
 topbar.InputBegan:Connect(function(input)
-	if input.UserInputType \~= Enum.UserInputType.MouseButton1
-		and input.UserInputType \~= Enum.UserInputType.Touch then
-		return
-	end
-
-	local target = playerGui:GetGuiObjectsAtPosition(input.Position.X, input.Position.Y)
-	for _, guiObject in ipairs(target) do
-		if isTopbarButton(guiObject) then
-			return
-		end
-	end
-
-	dragging = true
-	dragStart = input.Position
-	startPosition = window.Position
-
-	input.Changed:Connect(function()
-		if input.UserInputState == Enum.UserInputState.End then
-			dragging = false
-		end
-	end)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPosition = main.Position
+    end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-	if not dragging then
-		return
-	end
-
-	if input.UserInputType == Enum.UserInputType.MouseMovement
-		or input.UserInputType == Enum.UserInputType.Touch then
-		local delta = input.Position - dragStart
-		window.Position = UDim2.new(
-			startPosition.X.Scale,
-			startPosition.X.Offset + delta.X,
-			startPosition.Y.Scale,
-			startPosition.Y.Offset + delta.Y
-		)
-	end
+    if dragging and dragStart and startPosition and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(startPosition.X.Scale, startPosition.X.Offset + delta.X, startPosition.Y.Scale, startPosition.Y.Offset + delta.Y)
+    end
 end)
 
-exploreButton.Activated:Connect(function()
-	setActivePage("Game Selector")
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
 end)
 
-searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local query = string.lower(searchBox.Text)
-	for _, card in ipairs(selectorGrid:GetChildren()) do
-		if card:IsA("Frame") then
-			for _, game in ipairs(GAMES) do
-				if card.Name == game.Id .. "Card" then
-					local searchable = string.lower(game.Name .. " " .. game.Id)
-					card.Visible = (query == "") or (string.find(searchable, query, 1, true) \~= nil)
-					break
-				end
-			end
-		end
-	end
-end)
+--// Startup
+main.Size = UDim2.fromOffset(targetWidth - 24, targetHeight - 24)
+main.BackgroundTransparency = 0.12
+tween(main, 0.28, {
+    Size = UDim2.fromOffset(targetWidth, targetHeight),
+    BackgroundTransparency = 0,
+})
 
-minimizeButton.Activated:Connect(function()
-	isMinimized = not isMinimized
-	body.Visible = not isMinimized
-	overlay.BackgroundTransparency = isMinimized and 1 or 0.38
-	if isMinimized then
-		window.AnchorPoint = Vector2.new(1, 1)
-		window.Position = UDim2.new(1, -12, 1, -12)
-		window.Size = UDim2.fromOffset(300, 62)
-		minimizeButton.Text = "□"
-		version.Visible = false
-		brandSub.Visible = false
-	else
-		window.AnchorPoint = Vector2.new(0.5, 0.5)
-		window.Position = UDim2.fromScale(0.5, 0.5)
-		minimizeButton.Text = "−"
-		refreshLayout()
-	end
-end)
+showPage("home")
 
-closeButton.Activated:Connect(function()
-	screen.Enabled = false
-end)
-
--- Keybind mở/đóng menu (RightControl hoặc K)
+-- Keybind
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then return end
-	if input.KeyCode == Enum.KeyCode.RightControl or input.KeyCode == Enum.KeyCode.K then
-		screen.Enabled = not screen.Enabled
-	end
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.RightControl then
+        if isMinimized then
+            isMinimized = false
+            main.Visible = true
+            if reopenButton then reopenButton.Visible = false end
+        else
+            gui.Enabled = not gui.Enabled
+        end
+    end
 end)
 
-local function connectCamera(camera)
-	if camera then
-		camera:GetPropertyChangedSignal("ViewportSize"):Connect(refreshLayout)
-		refreshLayout()
-	end
-end
-connectCamera(Workspace.CurrentCamera)
-Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
-	connectCamera(Workspace.CurrentCamera)
-end)
-
-setActivePage("Home")
-refreshLayout()
-
--- Intro
-window.Visible = false
-local intro = create("Frame", {
-	Name = "KATOIntro",
-	Size = UDim2.fromScale(1, 1),
-	BackgroundColor3 = COLORS.Background,
-	BackgroundTransparency = 0.04,
-	BorderSizePixel = 0,
-	ZIndex = 100,
-}, screen)
-
-local introLogo = create("Frame", {
-	AnchorPoint = Vector2.new(0.5, 0.5),
-	Position = UDim2.fromScale(0.5, 0.42),
-	Size = UDim2.fromOffset(62, 62),
-	BackgroundColor3 = COLORS.Purple,
-	BorderSizePixel = 0,
-	ZIndex = 101,
-}, intro)
-corner(introLogo, 18)
-create("UIGradient", {
-	Color = ColorSequence.new(COLORS.PurpleLight, COLORS.Purple),
-	Rotation = 45,
-}, introLogo)
-create("TextLabel", {
-	Size = UDim2.fromScale(1, 1),
-	BackgroundTransparency = 1,
-	Text = "K",
-	TextColor3 = Color3.new(1, 1, 1),
-	Font = Enum.Font.GothamBlack,
-	TextSize = 38,
-	ZIndex = 102,
-}, introLogo)
-
-local introTitle = create("TextLabel", {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.52),
-	Size = UDim2.new(0.8, 0, 0, 34),
-	BackgroundTransparency = 1,
-	Text = "KATO HUB",
-	TextColor3 = COLORS.Text,
-	Font = Enum.Font.GothamBlack,
-	TextSize = 25,
-	ZIndex = 101,
-}, intro)
-local introSubtitle = create("TextLabel", {
-	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0.59),
-	Size = UDim2.new(0.85, 0, 0, 22),
-	BackgroundTransparency = 1,
-	Text = "UNIVERSAL GAME HUB",
-	TextColor3 = COLORS.PurpleLight,
-	Font = Enum.Font.GothamSemibold,
-	TextSize = 10,
-	ZIndex = 101,
-}, intro)
-
--- Language
-local currentLanguage = "EN"
-
-local TRANSLATIONS = {
-	["UNIVERSAL GAME HUB"] = "TRUNG TÂM GAME ĐA NĂNG",
-	["WORKSPACE"] = "KHÔNG GIAN",
-	["●  INTERFACE READY"] = "●  GIAO DIỆN SẴN SÀNG",
-	["WELCOME TO KATO HUB"] = "CHÀO MỪNG ĐẾN KATO HUB",
-	["Your games. Your space."] = "Game của bạn. Không gian của bạn.",
-	["Choose a game menu to open its separate interface."] = "Chọn game để mở giao diện riêng.",
-	["EXPLORE GAMES"] = "KHÁM PHÁ GAME",
-	["SUPPORTED GAMES"] = "GAME ĐƯỢC HỖ TRỢ",
-	["SELECT TO OPEN"] = "CHỌN ĐỂ MỞ",
-	["Home"] = "Trang chủ",
-	["Your KATO HUB dashboard."] = "Tổng quan KATO HUB của bạn.",
-	["Game Selector"] = "Chọn trò chơi",
-	["Browse the game menus available in this hub."] = "Duyệt các menu game có trong HUB.",
-	["Search games..."] = "Tìm game...",
-	["ALL GAMES"] = "TẤT CẢ GAME",
-	["GAME LIBRARY"] = "THƯ VIỆN GAME",
-	["Favorites"] = "Yêu thích",
-	["Your pinned game menus will appear here."] = "Các menu game đã ghim sẽ xuất hiện ở đây.",
-	["☆\nNo favorites yet"] = "☆\nChưa có mục yêu thích",
-	["Recently Used"] = "Gần đây",
-	["Game menus you open can be listed here."] = "Các menu game bạn đã mở sẽ hiển thị ở đây.",
-	["◷\nNothing opened yet"] = "◷\nChưa mở game nào",
-	["Settings"] = "Cài đặt",
-	["KATO HUB interface preferences."] = "Tùy chỉnh giao diện KATO HUB.",
-	["Appearance"] = "Giao diện",
-	["Theme"] = "Chủ đề",
-	["Layout"] = "Bố cục",
-	["Auto responsive"] = "Tự co giãn",
-	["Language"] = "Ngôn ngữ",
-	["OPEN MENU  →"] = "MỞ MENU  →",
-	["COMING SOON"] = "SẮP RA MẮT",
-	["GAME MENU 1"] = "MENU GAME 1",
-	["VERSION 1.0"] = "PHIÊN BẢN 1.0",
-}
-
-local function applyLanguage()
-	local function translate(value)
-		if currentLanguage == "VI" then
-			return TRANSLATIONS[value] or value
-		end
-		for english, vietnamese in pairs(TRANSLATIONS) do
-			if vietnamese == value then
-				return english
-			end
-		end
-		return value
-	end
-
-	for _, object in ipairs(screen:GetDescendants()) do
-		if object:IsA("TextLabel") or object:IsA("TextButton") then
-			object.Text = translate(object.Text)
-		elseif object:IsA("TextBox") then
-			object.PlaceholderText = translate(object.PlaceholderText)
-		end
-	end
-
-	languageButton.Text = currentLanguage == "EN" and "ENGLISH  ▾" or "TIẾNG VIỆT  ▾"
-end
-
-languageButton.Activated:Connect(function()
-	currentLanguage = currentLanguage == "EN" and "VI" or "EN"
-	applyLanguage()
-end)
-
-applyLanguage()
-
-task.spawn(function()
-	task.wait(0.75)
-	local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	TweenService:Create(intro, fadeInfo, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(introLogo, fadeInfo, { BackgroundTransparency = 1 }):Play()
-	TweenService:Create(introTitle, fadeInfo, { TextTransparency = 1 }):Play()
-	TweenService:Create(introSubtitle, fadeInfo, { TextTransparency = 1 }):Play()
-	task.wait(0.38)
-	intro:Destroy()
-	window.Visible = true
-	local targetSize = window.Size
-	window.Size = UDim2.fromOffset(targetSize.X.Offset * 0.94, targetSize.Y.Offset * 0.94)
-	TweenService:Create(window, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-		Size = targetSize,
-	}):Play()
-end)
-
-print("[KATO HUB] Main GUI loaded. TSB button ready.")
+print("[KATO HUB] 2.0 Executor Version loaded")
