@@ -72,7 +72,7 @@ local SCRIPT_PAGES = {
         { Name = "Moveset 01", Description = "Moveset script slot 01", Url = "" },
     },
     Visuals = {
-        { Name = "Visuals 01", Description = "Visual script slot 01", Url = "" },
+        { Name = "HIT BOX EXPANDER", Description = "Visual script ", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/Cyborg883/HitboxExpander/refs/heads/main/Release"))()" },
     },
     Misc = {
         { Name = "Misc 01", Description = "Utility script slot 01", Url = "" },
