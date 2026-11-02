@@ -1,7 +1,19 @@
 --[[
-    KATO HUB - MAIN MENU v2.2.1 FIXED FOR PC & MOBILE
+    KATO HUB - MAIN MENU v2.2.1 UTILITIES VISIBILITY FIX
     GUI: WinUI-inspired custom interface
-    Target: Roblox Executor environment (Delta, Solara, etc.)
+    Target: Roblox Executor environment
+
+    Merged features from the older animated menu:
+    - Startup intro animation and gradient logo
+    - Sidebar navigation: Home / Game Selector / Favorites / Recently Used / Utilities / Settings
+    - Search, favorites, and recently-used list
+    - EN / VI language toggle
+    - Draggable window, minimize, close, and keyboard toggle
+    - Responsive PC / mobile layout
+    - Card and button hover animations
+
+    The game-menu loader is kept in the same loadstring + game:HttpGet form
+    used by the original Main Menu. The game entry URL is preserved below.
 ]]
 
 -- SERVICES
@@ -83,7 +95,9 @@ local GAMES = {
     },
 }
 
--- UTILITIES LIBRARY (Đã sửa lỗi cú pháp ngoặc kép ở đây)
+-- UTILITIES LIBRARY
+-- A visible starter card is included so the Utilities page is not empty.
+-- Rename this entry and add more entries as needed. Url is intentionally blank.
 local UTILITIES = {
     {
         Id = "Pe Troll Player",
@@ -496,7 +510,7 @@ local function makeSectionTitle(parent, englishTitle, vietnameseTitle, englishNo
     return row
 end
 
--- GRID + CARDS
+-- GRID + CARDS (forward declarations are used by refresh functions)
 local homeGrid, homeGridLayout
 local selectorGrid, selectorGridLayout
 local favoritesGrid, favoritesGridLayout
@@ -655,8 +669,9 @@ local function makeGameCard(parent, gameInfo, order)
             tween(openButton, { BackgroundColor3 = COLORS.Purple }, 0.12)
         end)
 
-        -- Đã tối ưu hóa lại cơ chế tải loadstring cho cả Solara và Delta
         openButton.Activated:Connect(function()
+            -- Keep the original URL-loading pattern and target URL.
+            -- The GUI hides while the selected game menu is being loaded.
             recentIds[#recentIds + 1] = gameInfo.Id
             for index = #recentIds - 1, 1, -1 do
                 if recentIds[index] == gameInfo.Id then
@@ -672,24 +687,17 @@ local function makeGameCard(parent, gameInfo, order)
             sidebarStatus.Text = currentLanguage == "VI" and "●  ĐANG MỞ MENU" or "●  OPENING MENU"
             screen.Enabled = false
 
-            task.spawn(function()
-                local success, err = pcall(function()
-                    local content = game:HttpGet(gameInfo.Url)
-                    local fn, loadErr = loadstring(content)
-                    if not fn then
-                        error(loadErr)
-                    end
-                    fn()
-                end)
-
-                if not success then
-                    warn("[KATO HUB] Load failed:", err)
-                    screen.Enabled = true
-                    openButton.Active = true
-                    openButton.Text = currentLanguage == "VI" and "THỬ LẠI" or "TRY AGAIN"
-                    sidebarStatus.Text = currentLanguage == "VI" and "●  TẢI MENU THẤT BẠI" or "●  MENU LOAD FAILED"
-                end
+            local success, err = pcall(function()
+                loadstring(game:HttpGet(gameInfo.Url))()
             end)
+
+            if not success then
+                warn("[KATO HUB] Load failed:", err)
+                screen.Enabled = true
+                openButton.Active = true
+                openButton.Text = currentLanguage == "VI" and "THỬ LẠI" or "TRY AGAIN"
+                sidebarStatus.Text = currentLanguage == "VI" and "●  TẢI MENU THẤT BẠI" or "●  MENU LOAD FAILED"
+            end
         end)
     end
 
@@ -717,6 +725,8 @@ local function makeCardGrid(parent, gridName)
 end
 
 -- UTILITIES CARDS
+-- Utilities are catalog entries only. Url is stored/displayed as configuration;
+-- this page does not execute arbitrary remote code.
 local function makeUtilityCard(parent, utility, order)
     local card = create("Frame", {
         Name = utility.Id .. "Card",
@@ -1444,7 +1454,7 @@ local function refreshLayout()
     updateGridLayout(utilityGrid, utilityGridLayout)
 end
 
--- DRAG WINDOW
+-- DRAG WINDOW (topbar only; buttons are excluded)
 local function pointInside(guiObject, point)
     local position = guiObject.AbsolutePosition
     local size = guiObject.AbsoluteSize
@@ -1503,6 +1513,7 @@ languageButton.Activated:Connect(function()
     languageButton.Text = currentLanguage == "EN" and "ENGLISH  ▾" or "TIẾNG VIỆT  ▾"
     applyLanguage()
 
+    -- Update the game-card text without rebuilding the Home / Selector pages.
     for _, grid in ipairs({ homeGrid, selectorGrid }) do
         if grid then
             for _, gameInfo in ipairs(GAMES) do
@@ -1526,6 +1537,7 @@ languageButton.Activated:Connect(function()
         end
     end
 
+    -- Favorites / Recently Used are rebuilt so their card text matches the language.
     rebuildFavorites()
     rebuildRecent()
     renderUtilityGrid(utilityGrid)
@@ -1556,7 +1568,7 @@ closeButton.Activated:Connect(function()
     screen.Enabled = false
 end)
 
--- KEYBOARD TOGGLE
+-- KEYBOARD TOGGLE (RIGHT CTRL / RIGHT SHIFT)
 inputBeganConnection = UserInputService.InputBegan:Connect(function(input, processed)
     if processed then
         return
@@ -1568,7 +1580,7 @@ inputBeganConnection = UserInputService.InputBegan:Connect(function(input, proce
     end
 end)
 
--- CAMERA CONNECTIONS
+-- CAMERA / VIEWPORT CONNECTIONS
 local function bindCamera(camera)
     if cameraConnection then
         cameraConnection:Disconnect()
@@ -1646,4 +1658,40 @@ local introSubtitle = create("TextLabel", {
     TextColor3 = COLORS.PurpleLight,
     Font = Enum.Font.GothamSemibold,
     TextSize = 10,
-    
+    ZIndex = 101,
+}, intro)
+
+-- INTRO FADE + WINDOW POP-IN
+-- Use task.spawn so the UI initialization finishes before the animation starts.
+task.spawn(function()
+    task.wait(0.65)
+    local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    tween(intro, { BackgroundTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
+    tween(introLogo, { BackgroundTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
+    tween(introTitle, { TextTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
+    tween(introSubtitle, { TextTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
+    task.wait(0.38)
+
+    if intro and intro.Parent then
+        intro:Destroy()
+    end
+
+    if not screen.Parent then
+        return
+    end
+
+    window.Visible = true
+    local targetSize = window.Size
+    window.Size = UDim2.fromOffset(targetSize.X.Offset * 0.94, targetSize.Y.Offset * 0.94)
+    tween(window, { Size = targetSize }, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end)
+
+-- CLEAN UP CONNECTIONS IF THE GUI IS DESTROYED
+screen.Destroying:Connect(function()
+    if cameraConnection then cameraConnection:Disconnect() end
+    if cameraChangedConnection then cameraChangedConnection:Disconnect() end
+    if inputBeganConnection then inputBeganConnection:Disconnect() end
+    if inputChangedConnection then inputChangedConnection:Disconnect() end
+end)
+
+print("[KATO HUB] Main Menu v2.2.1 with visible Utilities slot loaded successfully")
