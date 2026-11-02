@@ -73,6 +73,9 @@ local SCRIPT_PAGES = {
     },
     Visuals = {
         { Name = "HIT BOX EXPANDER", Description = "Visual script ", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/Cyborg883/HitboxExpander/refs/heads/main/Release"))()" },
+        { Name = "TrashCan", Description = "Farm TrashCan", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/Cyborg883/AutoFarmKills/refs/heads/main/TrashCan"))()" },
+        { Name = "CamLock", Description = "Camlock fake Ps", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/Cyborg883/CombatGuiImproved/refs/heads/main/Protected_9850650779769664.lua"))()" },
+        { Name = "Fash Dash", Description = "Fake Dash", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/Cyborg883/FakeDash/refs/heads/main/Protected_5833389828844912.lua"))()" },
     },
     Misc = {
         { Name = "Misc 01", Description = "Utility script slot 01", Url = "" },
