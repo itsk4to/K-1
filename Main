@@ -1,5 +1,5 @@
 --[[
-    KATO HUB - MAIN MENU v2.2 UTILITIES UPDATE
+    KATO HUB - MAIN MENU v2.2.1 UTILITIES VISIBILITY FIX
     GUI: WinUI-inspired custom interface
     Target: Roblox Executor environment
 
@@ -96,18 +96,18 @@ local GAMES = {
 }
 
 -- UTILITIES LIBRARY
--- Add utility entries here. Keep Url empty until you have a URL to record.
--- Example:
--- {
---     Id = "UTILITY_1",
---     Name = "Utility Name",
---     NameVi = "Tên tiện ích",
---     Description = "English description.",
---     DescriptionVi = "Mô tả tiếng Việt.",
---     Enabled = false,
---     Url = "",
--- },
-local UTILITIES = {}
+-- A visible starter card is included so the Utilities page is not empty.
+-- Rename this entry and add more entries as needed. Url is intentionally blank.
+local UTILITIES = {
+    {
+        Id = "UTILITY_SLOT_01",
+        Name = "New Utility Slot",
+        NameVi = "Ô tiện ích mới",
+        Description = "This slot is ready for your utility description.",
+        DescriptionVi = "Mục này đã sẵn sàng để bạn thêm mô tả tiện ích.",
+        Url = "",
+    },
+}
 
 -- CLEAN OLD GUI
 local oldGui = playerGui:FindFirstChild("KATO_HUB_MAIN")
@@ -316,7 +316,7 @@ local versionLabel = create("TextLabel", {
     Position = UDim2.new(1, -112, 0.5, 0),
     Size = UDim2.fromOffset(76, 25),
     BackgroundColor3 = COLORS.Surface3,
-    Text = "VERSION 2.2",
+    Text = "VERSION 2.2.1",
     TextColor3 = COLORS.PurpleLight,
     Font = Enum.Font.GothamSemibold,
     TextSize = 9,
@@ -776,7 +776,7 @@ local function makeUtilityCard(parent, utility, order)
         Size = UDim2.new(1, -24, 0, 34),
         BackgroundColor3 = COLORS.Surface3,
         BackgroundTransparency = 0.1,
-        Text = utilityUrl ~= "" and utilityUrl or "(empty)",
+        Text = utilityUrl ~= "" and utilityUrl or (currentLanguage == "VI" and "(Chưa thêm URL)" or "(URL not set)"),
         TextColor3 = utilityUrl ~= "" and COLORS.Text or COLORS.Muted,
         Font = Enum.Font.Gotham,
         TextSize = 9,
@@ -1686,4 +1686,4 @@ screen.Destroying:Connect(function()
     if inputChangedConnection then inputChangedConnection:Disconnect() end
 end)
 
-print("[KATO HUB] Main Menu v2.2 with Utilities loaded successfully")
+print("[KATO HUB] Main Menu v2.2.1 with visible Utilities slot loaded successfully")
