@@ -780,3 +780,135 @@ RunService.RenderStepped:Connect(function(dt)
 end)
 
 print("[KATO MTC] Mobile Optimized Edition v3.2 loaded successfully.")
+
+--// KATO INTRO ANIMATION (COSMETIC ONLY)
+-- Runs once when the interface is opened. Existing gameplay/UI logic above is unchanged.
+mainFrame.Visible = false
+performanceHud.Visible = false
+
+local introLayer = make("Frame", {
+    Name = "KatoIntro",
+    Size = UDim2.fromScale(1, 1),
+    Position = UDim2.fromScale(0, 0),
+    BackgroundColor3 = Theme.Background,
+    BackgroundTransparency = 0,
+    BorderSizePixel = 0,
+    ZIndex = 100,
+}, screenGui)
+
+local introGlow = make("Frame", {
+    Name = "IntroGlow",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.43, 0),
+    Size = UDim2.fromOffset(150, 150),
+    BackgroundColor3 = Theme.Accent,
+    BackgroundTransparency = 0.88,
+    BorderSizePixel = 0,
+    ZIndex = 101,
+}, introLayer)
+corner(introGlow, 100)
+
+local introLogo = make("TextLabel", {
+    Name = "IntroLogo",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.39, 0),
+    Size = UDim2.fromOffset(330, 72),
+    BackgroundTransparency = 1,
+    Text = "KATO",
+    TextColor3 = Theme.Text,
+    TextTransparency = 1,
+    TextSize = 54,
+    Font = Enum.Font.GothamBlack,
+    ZIndex = 102,
+}, introLayer)
+local introGradient = make("UIGradient", {
+    Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Theme.AccentLight),
+        ColorSequenceKeypoint.new(0.5, Theme.Text),
+        ColorSequenceKeypoint.new(1, Theme.Accent),
+    }),
+    Rotation = 0,
+}, introLogo)
+
+local introTitle = makeLabel(introLayer, "KATO HUB", 15, Theme.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+introTitle.Name = "IntroTitle"
+introTitle.AnchorPoint = Vector2.new(0.5, 0.5)
+introTitle.Position = UDim2.new(0.5, 0, 0.55, 0)
+introTitle.Size = UDim2.fromOffset(300, 24)
+introTitle.TextTransparency = 1
+introTitle.ZIndex = 102
+
+local introSubtitle = makeLabel(introLayer, "MULTICREW TANK COMBAT", 9, Theme.AccentLight, Enum.Font.GothamSemibold, Enum.TextXAlignment.Center)
+introSubtitle.Name = "IntroSubtitle"
+introSubtitle.AnchorPoint = Vector2.new(0.5, 0.5)
+introSubtitle.Position = UDim2.new(0.5, 0, 0.62, 0)
+introSubtitle.Size = UDim2.fromOffset(300, 18)
+introSubtitle.TextTransparency = 1
+introSubtitle.ZIndex = 102
+
+local introTrack = make("Frame", {
+    Name = "IntroProgressTrack",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.72, 0),
+    Size = UDim2.fromOffset(190, 4),
+    BackgroundColor3 = Theme.Surface3,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 102,
+}, introLayer)
+corner(introTrack, 4)
+
+local introProgress = make("Frame", {
+    Name = "IntroProgress",
+    Size = UDim2.new(0, 0, 1, 0),
+    BackgroundColor3 = Theme.AccentLight,
+    BorderSizePixel = 0,
+    ZIndex = 103,
+}, introTrack)
+corner(introProgress, 4)
+
+local introStatusText = HubConfig.Language == "VI" and "ĐANG KHỞI TẠO GIAO DIỆN..." or "INITIALIZING INTERFACE..."
+local introStatus = makeLabel(introLayer, introStatusText, 8, Theme.Muted, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+introStatus.Name = "IntroStatus"
+introStatus.AnchorPoint = Vector2.new(0.5, 0.5)
+introStatus.Position = UDim2.new(0.5, 0, 0.77, 0)
+introStatus.Size = UDim2.fromOffset(300, 18)
+introStatus.TextTransparency = 1
+introStatus.ZIndex = 102
+
+-- Fade/scale in, animate the logo gradient and progress bar, then reveal the existing window.
+task.spawn(function()
+    local logoScale = make("UIScale", { Scale = 0.82 }, introLogo)
+
+    tween(introLogo, 0.45, { TextTransparency = 0 })
+    tween(introTitle, 0.5, { TextTransparency = 0 })
+    tween(introSubtitle, 0.6, { TextTransparency = 0 })
+    tween(introStatus, 0.7, { TextTransparency = 0 })
+    tween(introTrack, 0.35, { BackgroundTransparency = 0 })
+    tween(introGlow, 0.7, { BackgroundTransparency = 0.82 })
+    tween(logoScale, 0.65, { Scale = 1 })
+
+    local gradientAnimation = TweenService:Create(
+        introGradient,
+        TweenInfo.new(1.8, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+        { Rotation = 360 }
+    )
+    gradientAnimation:Play()
+    tween(introProgress, 1.55, { Size = UDim2.new(1, 0, 1, 0) })
+
+    task.wait(1.75)
+
+    tween(introLogo, 0.3, { TextTransparency = 1 })
+    tween(introTitle, 0.3, { TextTransparency = 1 })
+    tween(introSubtitle, 0.3, { TextTransparency = 1 })
+    tween(introStatus, 0.25, { TextTransparency = 1 })
+    tween(introTrack, 0.25, { BackgroundTransparency = 1 })
+    tween(introGlow, 0.3, { BackgroundTransparency = 1 })
+    local fadeOut = tween(introLayer, 0.35, { BackgroundTransparency = 1 })
+    fadeOut.Completed:Wait()
+
+    introLayer:Destroy()
+    mainFrame.Visible = true
+    performanceHud.Visible = HubConfig.ShowPerformanceHUD
+end)
+
