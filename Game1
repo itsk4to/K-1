@@ -68,6 +68,7 @@ local SCRIPT_PAGES = {
         { Name = "Lethal", Description = "Lethal Tech", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/Cyborg883/InstantLethalRevamp/refs/heads/main/Protected_6977817281150270.lua"))()" },
     },
     Moveset = {
+        { Name = "Kars", Description = "Moveset Kars", Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/OfficialAposty/RBLX-Scripts/refs/heads/main/UltimateLifeForm.lua"))()" },
         { Name = "Moveset 01", Description = "Moveset script slot 01", Url = "" },
     },
     Visuals = {
