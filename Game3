@@ -1,1 +1,273 @@
+--[[
+    AniPhobia Infinite Ammo - v7 (Inf Display)
+    Modern UI Edition (Black/White/Purple, Draggable, Mobile-Friendly)
+    Logic hoàn toàn giữ nguyên bản gốc v7.
+]]
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local Settings = {
+    Enabled = false,
+    AmmoAmount = math.huge,
+    ReserveAmount = math.huge,
+    Modifiers = true,
+}
+
+--// CLEANUP PREVIOUS INSTANCES
+local GUI_NAME = "AniPhobiaV7_GUI"
+local targetParent = pcall(function() return CoreGui.Name end) and CoreGui or PlayerGui
+if targetParent:FindFirstChild(GUI_NAME) then
+    targetParent[GUI_NAME]:Destroy()
+end
+
+--// THEME: ĐEN - TRẮNG - TÍM
+local Theme = {
+    Background = Color3.fromRGB(10, 10, 14),
+    Surface = Color3.fromRGB(18, 18, 24),
+    Surface3 = Color3.fromRGB(42, 35, 60),
+    Accent = Color3.fromRGB(147, 51, 234),
+    AccentLight = Color3.fromRGB(192, 132, 252),
+    Text = Color3.fromRGB(255, 255, 255),
+    Muted = Color3.fromRGB(160, 160, 180),
+    Green = Color3.fromRGB(75, 210, 135),
+    Red = Color3.fromRGB(240, 85, 100),
+    Stroke = Color3.fromRGB(75, 50, 110),
+}
+
+--// UI UTILITY BUILDERS
+local function make(className, properties, parent)
+    local obj = Instance.new(className)
+    for prop, val in pairs(properties or {}) do
+        obj[prop] = val
+    end
+    obj.Parent = parent
+    return obj
+end
+
+local function corner(parent, radius)
+    return make("UICorner", { CornerRadius = UDim.new(0, radius or 10) }, parent)
+end
+
+local function stroke(parent, color, transparency, thickness)
+    return make("UIStroke", {
+        Color = color or Theme.Stroke,
+        Transparency = transparency == nil and 0.4 or transparency,
+        Thickness = thickness or 1.2,
+    }, parent)
+end
+
+local function makeLabel(parent, textVal, size, color, font, alignment)
+    return make("TextLabel", {
+        BackgroundTransparency = 1,
+        Text = textVal or "",
+        TextColor3 = color or Theme.Text,
+        TextSize = size or 14,
+        Font = font or Enum.Font.Gotham,
+        TextXAlignment = alignment or Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center,
+        TextWrapped = true,
+    }, parent)
+end
+
+local function makeButton(parent, textVal, size, position, primary)
+    local btn = make("TextButton", {
+        AutoButtonColor = false,
+        Text = textVal or "",
+        Size = size,
+        Position = position or UDim2.new(),
+        BackgroundColor3 = primary and Theme.Accent or Theme.Surface3,
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 13,
+        BorderSizePixel = 0,
+    }, parent)
+    corner(btn, 10)
+    stroke(btn, primary and Theme.AccentLight or Theme.Stroke, 0.3, 1)
+    return btn
+end
+
+-- ================== GUI ==================
+local ScreenGui = make("ScreenGui", {
+    Name = GUI_NAME,
+    ResetOnSpawn = false,
+    IgnoreGuiInset = true,
+    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    DisplayOrder = 999,
+}, targetParent)
+
+-- Nút nổi mở lại UI trên Mobile / khi ẩn
+local RestoreButton = makeButton(ScreenGui, "⚡", UDim2.fromOffset(45, 45), UDim2.new(0, 15, 0.6, 0), true)
+RestoreButton.TextSize = 18
+RestoreButton.Visible = false
+
+local MainFrame = make("Frame", {
+    Name = "MainFrame",
+    AnchorPoint = Vector2.new(0.5, 0.5),
+    Position = UDim2.new(0.5, 0, 0.5, 0),
+    Size = UDim2.fromOffset(300, 175),
+    BackgroundColor3 = Theme.Background,
+    BorderSizePixel = 0,
+    ClipsDescendants = true,
+}, ScreenGui)
+corner(MainFrame, 16)
+stroke(MainFrame, Theme.Accent, 0.2, 1.5)
+
+-- Header (Dùng để kéo cửa sổ)
+local Header = make("Frame", {
+    Size = UDim2.new(1, 0, 0, 40),
+    BackgroundColor3 = Theme.Surface,
+    BorderSizePixel = 0,
+    Active = true,
+}, MainFrame)
+
+make("Frame", {
+    Size = UDim2.new(1, 0, 0, 2),
+    Position = UDim2.new(0, 0, 1, -2),
+    BackgroundColor3 = Theme.Accent,
+    BorderSizePixel = 0,
+}, Header)
+
+local Title = makeLabel(Header, "∞ Infinite Ammo v7", 13, Theme.Text, Enum.Font.GothamBold)
+Title.Position = UDim2.fromOffset(12, 0)
+Title.Size = UDim2.new(1, -50, 1, 0)
+
+local HideButton = makeButton(Header, "×", UDim2.fromOffset(26, 26), UDim2.new(1, -32, 0, 7), false)
+HideButton.TextSize = 15
+
+-- Body Content
+local Body = make("Frame", {
+    Position = UDim2.fromOffset(0, 41),
+    Size = UDim2.new(1, 0, 1, -41),
+    BackgroundTransparency = 1,
+}, MainFrame)
+
+local StatusLabel = makeLabel(Body, "Status: OFF", 11, Theme.Red, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+StatusLabel.Position = UDim2.new(0, 12, 0, 10)
+StatusLabel.Size = UDim2.new(1, -24, 0, 25)
+
+local ToggleButton = makeButton(Body, "TOGGLE (INSERT)", UDim2.new(1, -24, 0, 45), UDim2.new(0, 12, 0, 40), true)
+ToggleButton.TextSize = 12
+
+local InfoLabel = makeLabel(Body, "Phím tắt: INSERT", 9, Theme.Muted, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+InfoLabel.Position = UDim2.new(0, 12, 0, 95)
+InfoLabel.Size = UDim2.new(1, -24, 0, 20)
+
+--// KÉO THẢ CỬA SỔ (DRAGGING) MƯỢT MÀ
+local dragging, dragStart, startPos
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- ================== FUNCTIONS (GIỮ NGUYÊN GỐC V7) ==================
+local function ModifyAmmo(tool)
+    pcall(function()
+        for _, obj in pairs(tool:GetDescendants()) do
+            if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+                local name = obj.Name:lower()
+                if name:find("ammo") or name:find("clip") or name:find("mag") or name:find("bullet") or name:find("current") then
+                    obj.Value = Settings.AmmoAmount
+                elseif name:find("reserve") or name:find("stock") or name:find("total") then
+                    obj.Value = Settings.ReserveAmount
+                end
+                
+                -- Modifiers
+                if Settings.Modifiers then
+                    if name:find("recoil") or name:find("spread") or name:find("sway") or name:find("bloom") then
+                        obj.Value = 0
+                    elseif name:find("firerate") or name:find("rof") or name:find("rate") then
+                        obj.Value = math.max(obj.Value or 100, 800)
+                    elseif name:find("delay") or name:find("cooldown") then
+                        obj.Value = 0.01
+                    end
+                end
+            end
+        end
+    end)
+end
+
+-- ================== MAIN LOOP ==================
+local connection
+
+local function StartLoop()
+    if connection then connection:Disconnect() end
+    connection = RunService.Heartbeat:Connect(function()
+        if not Settings.Enabled then return end
+        
+        local char = LocalPlayer.Character
+        if char then
+            local tool = char:FindFirstChildOfClass("Tool")
+            if tool then
+                ModifyAmmo(tool)
+            end
+        end
+    end)
+end
+
+local function StopLoop()
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+end
+
+-- ================== TOGGLE ==================
+local function Toggle()
+    Settings.Enabled = not Settings.Enabled
+    if Settings.Enabled then
+        StartLoop()
+        StatusLabel.Text = "Status: ON (inf)"
+        StatusLabel.TextColor3 = Theme.Green
+        ToggleButton.BackgroundColor3 = Theme.Green
+        print("🟢 v7 Infinite Ammo ENABLED")
+    else
+        StopLoop()
+        StatusLabel.Text = "Status: OFF"
+        StatusLabel.TextColor3 = Theme.Red
+        ToggleButton.BackgroundColor3 = Theme.Accent
+        print("🔴 v7 Infinite Ammo DISABLED")
+    end
+end
+
+ToggleButton.MouseButton1Click:Connect(Toggle)
+
+HideButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    RestoreButton.Visible = true
+end)
+
+RestoreButton.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    RestoreButton.Visible = false
+end)
+
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == Enum.KeyCode.Insert then
+        Toggle()
+    end
+end)
+
+print("✅ AniPhobia v7 Loaded with Modern UI!")
+print("Nhấn INSERT hoặc Click nút để bật")
