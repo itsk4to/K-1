@@ -1,13 +1,22 @@
 --[[
-    AniPhobia Infinite Ammo - v7 (Inf Display)
-    Modern UI Edition (Black/White/Purple, Draggable, Mobile-Friendly)
-    Logic hoàn toàn giữ nguyên bản gốc v7.
+    AniPhobia Ammo UI - v8 (Updated Local Logic)
+    Modern UI Edition: Black / White / Purple, draggable, mobile-friendly.
+
+    Updated from the supplied v2 logic:
+      - Broader ammo / reserve name detection.
+      - Recoil, spread, sway, bloom, delay and fire-rate value modifiers.
+      - Re-applies to the equipped Tool and periodically checks Backpack Tools.
+      - Restores captured local values when toggled OFF.
+
+    Notes:
+      - This only changes numeric Value objects visible to this client.
+      - Server-authoritative ammo may ignore client-side changes.
+      - Executor-only GC/function/remote hooks are intentionally not included.
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -20,8 +29,8 @@ local Settings = {
 }
 
 --// CLEANUP PREVIOUS INSTANCES
-local GUI_NAME = "AniPhobiaV7_GUI"
-local targetParent = pcall(function() return CoreGui.Name end) and CoreGui or PlayerGui
+local GUI_NAME = "AniPhobiaV8_GUI"
+local targetParent = PlayerGui
 if targetParent:FindFirstChild(GUI_NAME) then
     targetParent[GUI_NAME]:Destroy()
 end
@@ -134,7 +143,7 @@ make("Frame", {
     BorderSizePixel = 0,
 }, Header)
 
-local Title = makeLabel(Header, "∞ Infinite Ammo v7", 13, Theme.Text, Enum.Font.GothamBold)
+local Title = makeLabel(Header, "∞ Infinite Ammo v8", 13, Theme.Text, Enum.Font.GothamBold)
 Title.Position = UDim2.fromOffset(12, 0)
 Title.Size = UDim2.new(1, -50, 1, 0)
 
@@ -181,46 +190,154 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- ================== FUNCTIONS (GIỮ NGUYÊN GỐC V7) ==================
-local function ModifyAmmo(tool)
-    pcall(function()
-        for _, obj in pairs(tool:GetDescendants()) do
-            if obj:IsA("IntValue") or obj:IsA("NumberValue") then
-                local name = obj.Name:lower()
-                if name:find("ammo") or name:find("clip") or name:find("mag") or name:find("bullet") or name:find("current") then
-                    obj.Value = Settings.AmmoAmount
-                elseif name:find("reserve") or name:find("stock") or name:find("total") then
-                    obj.Value = Settings.ReserveAmount
-                end
-                
-                -- Modifiers
-                if Settings.Modifiers then
-                    if name:find("recoil") or name:find("spread") or name:find("sway") or name:find("bloom") then
-                        obj.Value = 0
-                    elseif name:find("firerate") or name:find("rof") or name:find("rate") then
-                        obj.Value = math.max(obj.Value or 100, 800)
-                    elseif name:find("delay") or name:find("cooldown") then
-                        obj.Value = 0.01
-                    end
-                end
-            end
+-- ================== UPDATED AMMO LOGIC ==================
+local INT_VALUE_LIMIT = 2147483647
+local BACKPACK_SCAN_INTERVAL = 0.75
+
+-- Weak keys allow removed Value objects to be garbage-collected.
+local OriginalValues = setmetatable({}, { __mode = "k" })
+
+local function containsAny(name, patterns)
+    for _, pattern in ipairs(patterns) do
+        if name:find(pattern, 1, true) then
+            return true
         end
-    end)
+    end
+    return false
+end
+
+local AMMO_PATTERNS = {
+    "ammo", "clip", "magazine", "mag", "bullet", "bulle",
+    "round", "shell", "chamber", "cartridge",
+}
+
+local function isAmmoRelated(name)
+    return containsAny(name, AMMO_PATTERNS)
+end
+
+local function isReserveRelated(name)
+    if containsAny(name, { "reserve", "stock", "extra", "spare", "backpack" }) then
+        return true
+    end
+
+    -- Avoid treating unrelated fields such as TotalDamage as reserve ammo.
+    return name:find("total", 1, true) ~= nil and isAmmoRelated(name)
+end
+
+local function setTrackedValue(obj, newValue)
+    if obj.Value == newValue then
+        return
+    end
+
+    if OriginalValues[obj] == nil then
+        OriginalValues[obj] = obj.Value
+    end
+
+    obj.Value = newValue
+end
+
+local function setUnlimitedValue(obj, targetAmount)
+    -- IntValue cannot represent math.huge. Use a large integer for it;
+    -- NumberValue receives the configured amount (math.huge by default).
+    if obj:IsA("IntValue") then
+        setTrackedValue(obj, INT_VALUE_LIMIT)
+    else
+        setTrackedValue(obj, targetAmount)
+    end
+end
+
+local function applyModifier(obj, name)
+    if containsAny(name, { "recoil", "spread", "sway", "bloom", "deviation" }) then
+        setTrackedValue(obj, 0)
+        return
+    end
+
+    if containsAny(name, { "delay", "cooldown", "wait", "interval" }) then
+        setTrackedValue(obj, obj:IsA("IntValue") and 0 or 0.01)
+        return
+    end
+
+    if containsAny(name, { "firerate", "rateoffire", "rate", "rof", "rpm" }) then
+        local currentValue = tonumber(obj.Value) or 0
+        setTrackedValue(obj, math.max(currentValue, 1000))
+    end
+end
+
+local function ModifyAmmo(tool)
+    if not tool or not tool:IsA("Tool") then
+        return
+    end
+
+    for _, obj in ipairs(tool:GetDescendants()) do
+        if obj:IsA("IntValue") or obj:IsA("NumberValue") then
+            -- One bad Value object should not prevent the remaining values
+            -- in the Tool from being checked.
+            pcall(function()
+                local name = obj.Name:lower()
+
+                -- Reserve is checked first because names such as
+                -- "ReserveAmmo" contain both words.
+                if isReserveRelated(name) then
+                    setUnlimitedValue(obj, Settings.ReserveAmount)
+                elseif isAmmoRelated(name) then
+                    setUnlimitedValue(obj, Settings.AmmoAmount)
+                end
+
+                if Settings.Modifiers then
+                    applyModifier(obj, name)
+                end
+            end)
+        end
+    end
+end
+
+local function RestoreModifiedValues()
+    for obj, originalValue in pairs(OriginalValues) do
+        if obj and obj.Parent then
+            pcall(function()
+                obj.Value = originalValue
+            end)
+        end
+    end
+    table.clear(OriginalValues)
 end
 
 -- ================== MAIN LOOP ==================
 local connection
+local backpackElapsed = 0
 
 local function StartLoop()
-    if connection then connection:Disconnect() end
-    connection = RunService.Heartbeat:Connect(function()
-        if not Settings.Enabled then return end
-        
-        local char = LocalPlayer.Character
-        if char then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool then
-                ModifyAmmo(tool)
+    if connection then
+        connection:Disconnect()
+        connection = nil
+    end
+
+    backpackElapsed = 0
+    connection = RunService.Heartbeat:Connect(function(deltaTime)
+        if not Settings.Enabled then
+            return
+        end
+
+        -- Keep the currently equipped Tool refreshed every Heartbeat.
+        local character = LocalPlayer.Character
+        if character then
+            local equippedTool = character:FindFirstChildOfClass("Tool")
+            if equippedTool then
+                ModifyAmmo(equippedTool)
+            end
+        end
+
+        -- Check Backpack Tools less frequently to reduce repeated full scans.
+        backpackElapsed = backpackElapsed + deltaTime
+        if backpackElapsed >= BACKPACK_SCAN_INTERVAL then
+            backpackElapsed = 0
+            local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+            if backpack then
+                for _, tool in ipairs(backpack:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        ModifyAmmo(tool)
+                    end
+                end
             end
         end
     end)
@@ -231,6 +348,7 @@ local function StopLoop()
         connection:Disconnect()
         connection = nil
     end
+    RestoreModifiedValues()
 end
 
 -- ================== TOGGLE ==================
@@ -241,13 +359,13 @@ local function Toggle()
         StatusLabel.Text = "Status: ON (inf)"
         StatusLabel.TextColor3 = Theme.Green
         ToggleButton.BackgroundColor3 = Theme.Green
-        print("🟢 v7 Infinite Ammo ENABLED")
+        print("🟢 v8 Ammo Logic ENABLED")
     else
         StopLoop()
         StatusLabel.Text = "Status: OFF"
         StatusLabel.TextColor3 = Theme.Red
         ToggleButton.BackgroundColor3 = Theme.Accent
-        print("🔴 v7 Infinite Ammo DISABLED")
+        print("🔴 v8 Ammo Logic DISABLED")
     end
 end
 
@@ -420,5 +538,5 @@ IntroOverlay:Destroy()
 MainFrame.Visible = true
 RestoreButton.Visible = false
 
-print("✅ AniPhobia v7 Loaded with Modern UI!")
+print("✅ AniPhobia v8 loaded with updated local ammo logic and modern UI!")
 print("Nhấn INSERT hoặc Click nút để bật")
