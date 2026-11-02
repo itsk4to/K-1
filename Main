@@ -100,6 +100,14 @@ local GAMES = {
 -- Rename this entry and add more entries as needed. Url is intentionally blank.
 local UTILITIES = {
     {
+        Id = "Pe Troll Player",
+        Name = "Pe Troll Player",
+        NameVi = "Emoji Trêu Chọc",
+        Description = "A script containing animations for teasing others.",
+        DescriptionVi = "Chứa các hoạt ảnh trêu chọc người khác.",
+        Url = "loadstring(game:HttpGet("https://raw.githubusercontent.com/3LD4D0/FE-TROLLING-PLAYER-R6-R15/6eff8792afed57458d5114478b453a6f6bce5799/Fe%20trolling%20Player%20R6%20AND%20R15"))()",
+    },
+    {
         Id = "UTILITY_SLOT_01",
         Name = "New Utility Slot",
         NameVi = "Ô tiện ích mới",
