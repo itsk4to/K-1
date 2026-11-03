@@ -1,17 +1,19 @@
 --[[
-    KATO HUB - MAIN MENU v2.2.2
-    WinUI-inspired custom interface | PC + Mobile
+    KATO HUB - MAIN MENU v2.2.2 UTILITIES ACTIVATE
+    GUI: WinUI-inspired custom interface
+    Target: Roblox Executor environment
 
-    Pages:
-      Home / Game Selector / Favorites / Recently Used / Utilities / Settings
+    Merged features from the older animated menu:
+    - Startup intro animation and gradient logo
+    - Sidebar navigation: Home / Game Selector / Favorites / Recently Used / Utilities / Settings
+    - Search, favorites, and recently-used list
+    - EN / VI language toggle
+    - Draggable window, minimize, close, and keyboard toggle
+    - Responsive PC / mobile layout
+    - Card and button hover animations
 
-    Activation model:
-      - Game menus are loaded from ModuleScripts inside ReplicatedStorage.KATO_HUB_MENUS
-      - Utilities are loaded from ModuleScripts inside ReplicatedStorage.KATO_HUB_UTILITIES
-      - Each ModuleScript must return a function OR a table containing Start = function()
-      - No arbitrary Raw GitHub source is executed by this menu.
-
-    Recommended LocalScript location: StarterPlayerScripts
+    v2.2.2: Utilities cards are now activatable (load via loadstring + HttpGet)
+    and keep clear EN/VI descriptions. Other logic unchanged.
 ]]
 
 -- SERVICES
@@ -19,7 +21,6 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -39,47 +40,46 @@ local COLORS = {
     Danger = Color3.fromRGB(255, 130, 140),
 }
 
--- GAME MENU CATALOG
--- ModuleName must match a ModuleScript under ReplicatedStorage.KATO_HUB_MENUS.
+-- GAME LIST
 local GAMES = {
     {
         Id = "TSB",
         Name = "The Strongest Battlegrounds",
         NameVi = "The Strongest Battlegrounds",
         ShortName = "TSB",
-        Category = "GAME 1",
-        CategoryVi = "MENU 1",
+        Category = "GAME1",
+        CategoryVi = "MENU1",
         Description = "Open the TSB interface.",
         DescriptionVi = "Mở giao diện TSB.",
         Image = "rbxthumb://type=GameIcon&id=3808081382&w=512&h=512",
-        ModuleName = "TSB",
         Enabled = true,
+        Url = "https://raw.githubusercontent.com/itsk4to/K-1/main/Game1",
     },
     {
         Id = "MTC",
         Name = "Multicrew Tank Combat",
-        NameVi = "Multicrew Tank Combat",
+        NameVi = "Chiến đấu xe tăng với kíp lái nhiều người",
         ShortName = "MTC",
-        Category = "GAME 2",
-        CategoryVi = "GAME 2",
+        Category = "Game2",
+        CategoryVi = "Game2",
         Description = "Open the MTC interface.",
         DescriptionVi = "Mở giao diện MTC.",
         Image = "rbxthumb://type=GameIcon&id=95721658376580&w=512&h=512",
-        ModuleName = "MTC",
         Enabled = true,
+        Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game2"
     },
     {
         Id = "AniPhobia",
         Name = "AniPhobia",
-        NameVi = "AniPhobia",
-        ShortName = "AniP",
-        Category = "GAME 3",
-        CategoryVi = "GAME 3",
-        Description = "Open the AniPhobia interface.",
-        DescriptionVi = "Mở giao diện AniPhobia.",
+        NameVi = "Phobia phẫn nộ",
+        ShortName = "AniPhobia",
+        Category = "Game3",
+        CategoryVi = "Game3",
+        Description = "Open the AniP interface.",
+        DescriptionVi = "Mở giao diện AniP.",
         Image = "rbxthumb://type=GameIcon&id=6788434697&w=512&h=512",
-        ModuleName = "AniPhobia",
         Enabled = true,
+        Url = "https://raw.githubusercontent.com/itsk4to/K-1/refs/heads/main/Game3"
     },
     {
         Id = "MORE",
@@ -91,32 +91,29 @@ local GAMES = {
         Description = "Additional game menus can be added later.",
         DescriptionVi = "Có thể thêm menu game khác sau này.",
         Image = "",
-        ModuleName = "",
         Enabled = false,
     },
 }
 
--- UTILITIES CATALOG
--- Add a ModuleScript with the matching ModuleName under ReplicatedStorage.KATO_HUB_UTILITIES.
--- The PeTrollPlayer entry is a catalog slot only until its local ModuleScript is installed.
+-- UTILITIES LIBRARY
+-- Each entry supports Name / NameVi / Description / DescriptionVi / Url.
+-- Cards show description and an Activate button that loads the Url (if set).
 local UTILITIES = {
     {
-        Id = "PeTrollPlayer",
+        Id = "Pe Troll Player",
         Name = "Pe Troll Player",
-        NameVi = "Pe Troll Player",
-        Description = "A utility module for your own approved test experience.",
-        DescriptionVi = "Module tiện ích dành cho trải nghiệm thử nghiệm của bạn.",
-        ModuleName = "PeTrollPlayer",
-        Enabled = true,
+        NameVi = "Emoji Trêu Chọc",
+        Description = "A script containing animations for teasing others.",
+        DescriptionVi = "Chứa các hoạt ảnh trêu chọc người khác.",
+        Url = "https://raw.githubusercontent.com/3LD4D0/FE-TROLLING-PLAYER-R6-R15/6eff8792afed57458d5114478b453a6f6bce5799/Fe%20trolling%20Player%20R6%20AND%20R15",
     },
     {
         Id = "UTILITY_SLOT_01",
         Name = "New Utility Slot",
         NameVi = "Ô tiện ích mới",
-        Description = "This slot is ready for another utility module.",
-        DescriptionVi = "Mục này sẵn sàng cho một module tiện ích khác.",
-        ModuleName = "",
-        Enabled = false,
+        Description = "This slot is ready for your utility description.",
+        DescriptionVi = "Mục này đã sẵn sàng để bạn thêm mô tả tiện ích.",
+        Url = "",
     },
 }
 
@@ -137,13 +134,13 @@ local recentIds = {}
 local pageObjects = {}
 local navButtons = {}
 local localizedObjects = {}
-local cameraConnection
-local cameraChangedConnection
-local inputBeganConnection
-local inputChangedConnection
+local cameraConnection = nil
+local cameraChangedConnection = nil
+local inputBeganConnection = nil
+local inputChangedConnection = nil
 local dragging = false
-local dragStart
-local dragStartPosition
+local dragStart = nil
+local dragStartPosition = nil
 
 -- HELPERS
 local function create(className, properties, parent)
@@ -164,7 +161,7 @@ end
 local function stroke(parent, color, transparency, thickness)
     return create("UIStroke", {
         Color = color or COLORS.Border,
-        Transparency = transparency == nil and 0 or transparency,
+        Transparency = transparency or 0,
         Thickness = thickness or 1,
     }, parent)
 end
@@ -173,6 +170,7 @@ local function tween(object, properties, duration, style, direction)
     if not object or not object.Parent then
         return nil
     end
+
     local info = TweenInfo.new(
         duration or 0.15,
         style or Enum.EasingStyle.Quart,
@@ -191,9 +189,11 @@ local function localize(object, englishText, vietnameseText, propertyName)
         Vietnamese = vietnameseText or englishText,
         Property = propertyName,
     }
+
     object[propertyName] = currentLanguage == "VI"
         and (vietnameseText or englishText)
         or englishText
+
     return object
 end
 
@@ -206,13 +206,6 @@ local function applyLanguage()
                 or entry.English
         end
     end
-end
-
-local function getEntryText(entry, field)
-    if currentLanguage == "VI" then
-        return entry[field .. "Vi"] or entry[field] or ""
-    end
-    return entry[field] or ""
 end
 
 local function getGameById(gameId)
@@ -228,52 +221,11 @@ local function hasFavorite(gameId)
     return favoriteIds[gameId] == true
 end
 
--- MODULE ACTIVATION
-local function getModuleFolder(folderName)
-    local folder = ReplicatedStorage:FindFirstChild(folderName)
-    if not folder then
-        return nil, "Folder ReplicatedStorage." .. folderName .. " was not found."
+local function getGameText(gameInfo, field)
+    if currentLanguage == "VI" then
+        return gameInfo[field .. "Vi"] or gameInfo[field]
     end
-    return folder
-end
-
-local function activateModule(folderName, moduleName)
-    if type(moduleName) ~= "string" or moduleName == "" then
-        return false, "This entry has no ModuleName configured."
-    end
-
-    local folder, folderError = getModuleFolder(folderName)
-    if not folder then
-        return false, folderError
-    end
-
-    local moduleScript = folder:FindFirstChild(moduleName)
-    if not moduleScript or not moduleScript:IsA("ModuleScript") then
-        return false, "ModuleScript '" .. moduleName .. "' was not found in " .. folderName .. "."
-    end
-
-    local requireSuccess, moduleResult = pcall(require, moduleScript)
-    if not requireSuccess then
-        return false, "Module require failed: " .. tostring(moduleResult)
-    end
-
-    local startFunction
-    if type(moduleResult) == "function" then
-        startFunction = moduleResult
-    elseif type(moduleResult) == "table" and type(moduleResult.Start) == "function" then
-        startFunction = function()
-            return moduleResult.Start()
-        end
-    else
-        return false, "Module must return a function or a table containing Start()."
-    end
-
-    local runSuccess, runResult = pcall(startFunction)
-    if not runSuccess then
-        return false, "Module Start() failed: " .. tostring(runResult)
-    end
-
-    return true
+    return gameInfo[field]
 end
 
 -- SCREEN GUI
@@ -305,7 +257,7 @@ local window = create("Frame", {
     Visible = false,
 }, overlay)
 corner(window, 17)
-stroke(window, COLORS.Border, 0.16)
+local windowStroke = stroke(window, COLORS.Border, 0.16)
 
 -- TOPBAR
 local topbar = create("Frame", {
@@ -395,19 +347,21 @@ local function makeTopButton(name, caption, xOffset, textColor)
         BorderSizePixel = 0,
     }, topbar)
     corner(button, 9)
+
     button.MouseEnter:Connect(function()
         tween(button, { BackgroundColor3 = COLORS.Border }, 0.12)
     end)
     button.MouseLeave:Connect(function()
         tween(button, { BackgroundColor3 = COLORS.Surface3 }, 0.12)
     end)
+
     return button
 end
 
 local minimizeButton = makeTopButton("MinimizeButton", "−", -54)
 local closeButton = makeTopButton("CloseButton", "×", -16, COLORS.Danger)
 
--- BODY / SIDEBAR / PAGE HOST
+-- BODY, SIDEBAR, PAGE HOST
 local body = create("Frame", {
     Name = "Body",
     Position = UDim2.fromOffset(0, 60),
@@ -437,7 +391,7 @@ localize(sidebarTitle, "WORKSPACE", "KHÔNG GIAN")
 local navHolder = create("Frame", {
     Name = "Navigation",
     Position = UDim2.fromOffset(10, 48),
-    Size = UDim2.new(1, -20, 0, 300),
+    Size = UDim2.new(1, -20, 0, 250),
     BackgroundTransparency = 1,
 }, sidebar)
 local navLayout = create("UIListLayout", {
@@ -556,94 +510,18 @@ local function makeSectionTitle(parent, englishTitle, vietnameseTitle, englishNo
     return row
 end
 
--- GRID HELPERS
-local function makeCardGrid(parent, gridName)
-    local holder = create("Frame", {
-        Name = gridName,
-        Size = UDim2.new(1, 0, 0, 2),
-        BackgroundTransparency = 1,
-    }, parent)
-
-    local layout = create("UIGridLayout", {
-        CellSize = UDim2.new(0.5, -7, 0, 178),
-        CellPadding = UDim2.fromOffset(12, 10),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    }, holder)
-
-    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        holder.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
-    end)
-
-    return holder, layout
-end
-
-local function clearCards(holder)
-    if not holder then return end
-    for _, child in ipairs(holder:GetChildren()) do
-        if child:IsA("Frame") and child.Name:match("Card$") then
-            child:Destroy()
-        end
-    end
-end
-
--- FORWARD REFERENCES
+-- GRID + CARDS (forward declarations are used by refresh functions)
 local homeGrid, homeGridLayout
 local selectorGrid, selectorGridLayout
 local favoritesGrid, favoritesGridLayout
 local recentGrid, recentGridLayout
 local utilityGrid, utilityGridLayout
-local favoritesEmpty, recentEmpty, utilitiesEmpty
+local utilitiesEmpty
+local favoritesEmpty, recentEmpty
 local selectorSearch
-local rebuildFavorites, rebuildRecent, renderUtilityGrid
+local rebuildFavorites
+local rebuildRecent
 
-local function setSidebarStatus(englishText, vietnameseText, color)
-    sidebarStatus.Text = currentLanguage == "VI" and vietnameseText or englishText
-    sidebarStatus.TextColor3 = color or COLORS.Green
-end
-
--- COMMON MODULE ACTIVATION
-local function openCatalogEntry(entry, folderName, button, statusLabel, buttonEnglish, buttonVietnamese)
-    if entry.Enabled == false or type(entry.ModuleName) ~= "string" or entry.ModuleName == "" then
-        return
-    end
-
-    if button:GetAttribute("Busy") then
-        return
-    end
-    button:SetAttribute("Busy", true)
-    button.Active = false
-    button.Text = currentLanguage == "VI" and "ĐANG MỞ..." or "LOADING..."
-    statusLabel.Text = "● LOADING"
-    statusLabel.TextColor3 = COLORS.PurpleLight
-    setSidebarStatus("● OPENING MODULE", "● ĐANG MỞ MODULE", COLORS.PurpleLight)
-
-    screen.Enabled = false
-
-    task.spawn(function()
-        local success, err = activateModule(folderName, entry.ModuleName)
-        if not success then
-            warn("[KATO HUB] Module activation failed:", err)
-            screen.Enabled = true
-            button:SetAttribute("Busy", false)
-            button.Active = true
-            button.Text = currentLanguage == "VI" and "THỬ LẠI" or "TRY AGAIN"
-            statusLabel.Text = "● LOAD FAILED"
-            statusLabel.TextColor3 = COLORS.Danger
-            setSidebarStatus("● MODULE LOAD FAILED", "● MỞ MODULE THẤT BẠI", COLORS.Danger)
-            return
-        end
-
-        statusLabel.Text = "● RUNNING"
-        statusLabel.TextColor3 = COLORS.Green
-        button:SetAttribute("Busy", false)
-        button.Active = true
-        button.Text = currentLanguage == "VI" and buttonVietnamese or buttonEnglish
-        setSidebarStatus("● MODULE STARTED", "● MODULE ĐÃ CHẠY", COLORS.Green)
-        print("[KATO HUB] Started:", entry.Name)
-    end)
-end
-
--- GAME CARD
 local function makeGameCard(parent, gameInfo, order)
     local card = create("Frame", {
         Name = gameInfo.Id .. "Card",
@@ -681,31 +559,31 @@ local function makeGameCard(parent, gameInfo, order)
         create("TextLabel", {
             Size = UDim2.fromScale(1, 1),
             BackgroundTransparency = 1,
-            Text = gameInfo.ShortName or "+",
+            Text = gameInfo.ShortName,
             TextColor3 = Color3.fromRGB(241, 232, 255),
             Font = Enum.Font.GothamBlack,
             TextSize = 29,
         }, artwork)
     end
 
-    create("TextLabel", {
+    local category = create("TextLabel", {
         Name = "Category",
         Position = UDim2.fromOffset(12, 79),
         Size = UDim2.new(1, -24, 0, 13),
         BackgroundTransparency = 1,
-        Text = getEntryText(gameInfo, "Category"),
+        Text = getGameText(gameInfo, "Category"),
         TextColor3 = COLORS.PurpleLight,
         Font = Enum.Font.GothamBold,
         TextSize = 8,
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
 
-    create("TextLabel", {
+    local title = create("TextLabel", {
         Name = "Title",
         Position = UDim2.fromOffset(12, 94),
         Size = UDim2.new(1, -24, 0, 20),
         BackgroundTransparency = 1,
-        Text = getEntryText(gameInfo, "Name"),
+        Text = getGameText(gameInfo, "Name"),
         TextColor3 = COLORS.Text,
         Font = Enum.Font.GothamBold,
         TextSize = 11,
@@ -713,12 +591,12 @@ local function makeGameCard(parent, gameInfo, order)
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
 
-    create("TextLabel", {
+    local description = create("TextLabel", {
         Name = "Description",
         Position = UDim2.fromOffset(12, 115),
         Size = UDim2.new(1, -24, 0, 25),
         BackgroundTransparency = 1,
-        Text = getEntryText(gameInfo, "Description"),
+        Text = getGameText(gameInfo, "Description"),
         TextColor3 = COLORS.Muted,
         Font = Enum.Font.Gotham,
         TextSize = 9,
@@ -742,21 +620,19 @@ local function makeGameCard(parent, gameInfo, order)
     }, card)
     corner(favoriteButton, 7)
 
-    local isAvailable = gameInfo.Enabled ~= false and gameInfo.ModuleName ~= ""
     local openButton = create("TextButton", {
         Name = "OpenButton",
         AnchorPoint = Vector2.new(0, 1),
         Position = UDim2.new(0, 12, 1, -9),
         Size = UDim2.new(1, -53, 0, 25),
-        BackgroundColor3 = isAvailable and COLORS.Purple or COLORS.Surface3,
-        Text = isAvailable
-            and (currentLanguage == "VI" and "MỞ MENU  →" or "OPEN MENU  →")
+        BackgroundColor3 = gameInfo.Enabled and COLORS.Purple or COLORS.Surface3,
+        Text = gameInfo.Enabled and (currentLanguage == "VI" and "MỞ MENU  →" or "OPEN MENU  →")
             or (currentLanguage == "VI" and "SẮP RA MẮT" or "COMING SOON"),
-        TextColor3 = isAvailable and Color3.new(1, 1, 1) or COLORS.Muted,
+        TextColor3 = gameInfo.Enabled and Color3.new(1, 1, 1) or COLORS.Muted,
         Font = Enum.Font.GothamBold,
         TextSize = 9,
         AutoButtonColor = false,
-        Active = isAvailable,
+        Active = gameInfo.Enabled,
         BorderSizePixel = 0,
     }, card)
     corner(openButton, 8)
@@ -776,52 +652,82 @@ local function makeGameCard(parent, gameInfo, order)
         else
             favoriteIds[gameInfo.Id] = true
         end
-        local favorite = hasFavorite(gameInfo.Id)
-        favoriteButton.Text = favorite and "★" or "☆"
-        favoriteButton.TextColor3 = favorite and COLORS.PurpleLight or COLORS.Muted
-        tween(favoriteButton, { BackgroundColor3 = favorite and COLORS.Border or COLORS.Surface3 }, 0.12)
-        if rebuildFavorites then rebuildFavorites() end
+        local isFavorite = hasFavorite(gameInfo.Id)
+        favoriteButton.Text = isFavorite and "★" or "☆"
+        favoriteButton.TextColor3 = isFavorite and COLORS.PurpleLight or COLORS.Muted
+        tween(favoriteButton, { BackgroundColor3 = isFavorite and COLORS.Border or COLORS.Surface3 }, 0.12)
+        if rebuildFavorites then
+            rebuildFavorites()
+        end
     end)
 
-    if isAvailable then
+    if gameInfo.Enabled then
         openButton.MouseEnter:Connect(function()
             tween(openButton, { BackgroundColor3 = COLORS.PurpleLight }, 0.12)
         end)
         openButton.MouseLeave:Connect(function()
             tween(openButton, { BackgroundColor3 = COLORS.Purple }, 0.12)
         end)
+
         openButton.Activated:Connect(function()
+            -- Keep the original URL-loading pattern and target URL.
+            -- The GUI hides while the selected game menu is being loaded.
             recentIds[#recentIds + 1] = gameInfo.Id
             for index = #recentIds - 1, 1, -1 do
                 if recentIds[index] == gameInfo.Id then
                     table.remove(recentIds, index)
                 end
             end
-            while #recentIds > 30 do
-                table.remove(recentIds, 1)
+            if rebuildRecent then
+                rebuildRecent()
             end
-            if rebuildRecent then rebuildRecent() end
 
-            local status = create("TextLabel", {
-                Name = "StatusRuntime",
-                Visible = false,
-                Text = "",
-            }, card)
-            openCatalogEntry(
-                gameInfo,
-                "KATO_HUB_MENUS",
-                openButton,
-                status,
-                "OPEN MENU  →",
-                "MỞ MENU  →"
-            )
+            openButton.Active = false
+            openButton.Text = currentLanguage == "VI" and "ĐANG TẢI..." or "LOADING..."
+            sidebarStatus.Text = currentLanguage == "VI" and "●  ĐANG MỞ MENU" or "●  OPENING MENU"
+            screen.Enabled = false
+
+            local success, err = pcall(function()
+                loadstring(game:HttpGet(gameInfo.Url))()
+            end)
+
+            if not success then
+                warn("[KATO HUB] Load failed:", err)
+                screen.Enabled = true
+                openButton.Active = true
+                openButton.Text = currentLanguage == "VI" and "THỬ LẠI" or "TRY AGAIN"
+                sidebarStatus.Text = currentLanguage == "VI" and "●  TẢI MENU THẤT BẠI" or "●  MENU LOAD FAILED"
+            end
         end)
     end
 
     return card
 end
 
--- UTILITY CARD: SAME ACTIVATION FLOW AS GAME CARDS
+local function makeCardGrid(parent, gridName)
+    local holder = create("Frame", {
+        Name = gridName,
+        Size = UDim2.new(1, 0, 0, 2),
+        BackgroundTransparency = 1,
+    }, parent)
+
+    local layout = create("UIGridLayout", {
+        CellSize = UDim2.new(0.5, -7, 0, 178),
+        CellPadding = UDim2.fromOffset(12, 10),
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    }, holder)
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        holder.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
+    end)
+
+    return holder, layout
+end
+
+-- UTILITIES CARDS
+-- Cards show Name + Description and an Activate button.
+-- If Url is set, clicking Activate runs loadstring(game:HttpGet(Url)).
+-- Hub stays open (unlike game menus) so you can keep using other features.
 local function makeUtilityCard(parent, utility, order)
     local card = create("Frame", {
         Name = utility.Id .. "Card",
@@ -832,26 +738,28 @@ local function makeUtilityCard(parent, utility, order)
     }, parent)
     corner(card, 14)
     local cardStroke = stroke(card, COLORS.Border, 0.22)
+    local utilityUrl = utility.Url or ""
+    local hasUrl = utilityUrl ~= ""
 
-    create("TextLabel", {
+    local title = create("TextLabel", {
         Name = "Title",
-        Position = UDim2.fromOffset(12, 13),
-        Size = UDim2.new(1, -24, 0, 23),
+        Position = UDim2.fromOffset(12, 12),
+        Size = UDim2.new(1, -24, 0, 22),
         BackgroundTransparency = 1,
-        Text = getEntryText(utility, "Name"),
+        Text = getGameText(utility, "Name"),
         TextColor3 = COLORS.Text,
         Font = Enum.Font.GothamBold,
-        TextSize = 12,
+        TextSize = 13,
         TextTruncate = Enum.TextTruncate.AtEnd,
         TextXAlignment = Enum.TextXAlignment.Left,
     }, card)
 
-    create("TextLabel", {
+    local description = create("TextLabel", {
         Name = "Description",
-        Position = UDim2.fromOffset(12, 42),
-        Size = UDim2.new(1, -24, 0, 43),
+        Position = UDim2.fromOffset(12, 38),
+        Size = UDim2.new(1, -24, 0, 78),
         BackgroundTransparency = 1,
-        Text = getEntryText(utility, "Description"),
+        Text = getGameText(utility, "Description"),
         TextColor3 = COLORS.Muted,
         Font = Enum.Font.Gotham,
         TextSize = 10,
@@ -860,36 +768,23 @@ local function makeUtilityCard(parent, utility, order)
         TextYAlignment = Enum.TextYAlignment.Top,
     }, card)
 
-    local isAvailable = utility.Enabled ~= false and utility.ModuleName ~= ""
-    local statusLabel = create("TextLabel", {
-        Name = "Status",
-        Position = UDim2.fromOffset(12, 91),
-        Size = UDim2.new(1, -24, 0, 15),
-        BackgroundTransparency = 1,
-        Text = isAvailable and "● READY" or "● NOT CONFIGURED",
-        TextColor3 = isAvailable and COLORS.Green or COLORS.Muted,
-        Font = Enum.Font.GothamSemibold,
-        TextSize = 9,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    }, card)
-
-    local openButton = create("TextButton", {
-        Name = "OpenButton",
+    local activateButton = create("TextButton", {
+        Name = "ActivateButton",
         AnchorPoint = Vector2.new(0, 1),
         Position = UDim2.new(0, 12, 1, -10),
-        Size = UDim2.new(1, -24, 0, 29),
-        BackgroundColor3 = isAvailable and COLORS.Purple or COLORS.Surface3,
-        Text = isAvailable
-            and (currentLanguage == "VI" and "MỞ TIỆN ÍCH  →" or "OPEN UTILITY  →")
-            or (currentLanguage == "VI" and "SẮP RA MẮT" or "COMING SOON"),
-        TextColor3 = isAvailable and Color3.new(1, 1, 1) or COLORS.Muted,
+        Size = UDim2.new(1, -24, 0, 28),
+        BackgroundColor3 = hasUrl and COLORS.Purple or COLORS.Surface3,
+        Text = hasUrl
+            and (currentLanguage == "VI" and "KÍCH HOẠT  →" or "ACTIVATE  →")
+            or (currentLanguage == "VI" and "CHƯA CÓ URL" or "NO URL SET"),
+        TextColor3 = hasUrl and Color3.new(1, 1, 1) or COLORS.Muted,
         Font = Enum.Font.GothamBold,
-        TextSize = 9,
+        TextSize = 10,
         AutoButtonColor = false,
-        Active = isAvailable,
+        Active = hasUrl,
         BorderSizePixel = 0,
     }, card)
-    corner(openButton, 8)
+    corner(activateButton, 8)
 
     card.MouseEnter:Connect(function()
         tween(card, { BackgroundColor3 = Color3.fromRGB(36, 32, 51) }, 0.14)
@@ -900,48 +795,76 @@ local function makeUtilityCard(parent, utility, order)
         tween(cardStroke, { Transparency = 0.22, Color = COLORS.Border }, 0.14)
     end)
 
-    if isAvailable then
-        openButton.MouseEnter:Connect(function()
-            if not openButton:GetAttribute("Busy") then
-                tween(openButton, { BackgroundColor3 = COLORS.PurpleLight }, 0.12)
-            end
+    if hasUrl then
+        activateButton.MouseEnter:Connect(function()
+            tween(activateButton, { BackgroundColor3 = COLORS.PurpleLight }, 0.12)
         end)
-        openButton.MouseLeave:Connect(function()
-            if not openButton:GetAttribute("Busy") then
-                tween(openButton, { BackgroundColor3 = COLORS.Purple }, 0.12)
-            end
+        activateButton.MouseLeave:Connect(function()
+            tween(activateButton, { BackgroundColor3 = COLORS.Purple }, 0.12)
         end)
-        openButton.Activated:Connect(function()
-            openCatalogEntry(
-                utility,
-                "KATO_HUB_UTILITIES",
-                openButton,
-                statusLabel,
-                "OPEN UTILITY  →",
-                "MỞ TIỆN ÍCH  →"
-            )
+
+        activateButton.Activated:Connect(function()
+            activateButton.Active = false
+            activateButton.Text = currentLanguage == "VI" and "ĐANG TẢI..." or "LOADING..."
+            sidebarStatus.Text = currentLanguage == "VI" and "●  ĐANG KÍCH HOẠT TIỆN ÍCH" or "●  ACTIVATING UTILITY"
+
+            local success, err = pcall(function()
+                loadstring(game:HttpGet(utilityUrl))()
+            end)
+
+            if success then
+                activateButton.Text = currentLanguage == "VI" and "ĐÃ KÍCH HOẠT" or "ACTIVATED"
+                activateButton.BackgroundColor3 = COLORS.Green
+                sidebarStatus.Text = currentLanguage == "VI" and "●  TIỆN ÍCH ĐÃ CHẠY" or "●  UTILITY RUNNING"
+                task.delay(1.6, function()
+                    if activateButton and activateButton.Parent then
+                        activateButton.Active = true
+                        activateButton.Text = currentLanguage == "VI" and "KÍCH HOẠT  →" or "ACTIVATE  →"
+                        activateButton.BackgroundColor3 = COLORS.Purple
+                    end
+                end)
+            else
+                warn("[KATO HUB] Utility load failed:", err)
+                activateButton.Active = true
+                activateButton.Text = currentLanguage == "VI" and "THỬ LẠI" or "TRY AGAIN"
+                activateButton.BackgroundColor3 = COLORS.Danger
+                sidebarStatus.Text = currentLanguage == "VI" and "●  KÍCH HOẠT THẤT BẠI" or "●  UTILITY LOAD FAILED"
+            end
         end)
     end
 
     return card
 end
 
--- RENDER HELPERS
-local function renderGameGrid(holder, gameList)
-    clearCards(holder)
-    for index, gameInfo in ipairs(gameList) do
-        makeGameCard(holder, gameInfo, index)
+local function renderUtilityGrid(holder)
+    if not holder then
+        return
     end
-end
 
-renderUtilityGrid = function(holder)
-    if not holder then return end
-    clearCards(holder)
+    for _, child in ipairs(holder:GetChildren()) do
+        if child:IsA("Frame") and child.Name:match("Card$") then
+            child:Destroy()
+        end
+    end
+
     for index, utility in ipairs(UTILITIES) do
         makeUtilityCard(holder, utility, index)
     end
+
     if utilitiesEmpty then
-        utilitiesEmpty.Visible = #UTILITIES == 0
+        utilitiesEmpty.Visible = (#UTILITIES == 0)
+    end
+end
+
+local function renderGrid(holder, gameList)
+    for _, child in ipairs(holder:GetChildren()) do
+        if child:IsA("Frame") and child.Name:match("Card$") then
+            child:Destroy()
+        end
+    end
+
+    for index, gameInfo in ipairs(gameList) do
+        makeGameCard(holder, gameInfo, index)
     end
 end
 
@@ -970,14 +893,22 @@ end
 
 rebuildFavorites = function()
     local list = getFavoriteGames()
-    if favoritesGrid then renderGameGrid(favoritesGrid, list) end
-    if favoritesEmpty then favoritesEmpty.Visible = #list == 0 end
+    if favoritesGrid then
+        renderGrid(favoritesGrid, list)
+    end
+    if favoritesEmpty then
+        favoritesEmpty.Visible = (#list == 0)
+    end
 end
 
 rebuildRecent = function()
     local list = getRecentGames()
-    if recentGrid then renderGameGrid(recentGrid, list) end
-    if recentEmpty then recentEmpty.Visible = #list == 0 end
+    if recentGrid then
+        renderGrid(recentGrid, list)
+    end
+    if recentEmpty then
+        recentEmpty.Visible = (#list == 0)
+    end
 end
 
 -- HOME PAGE
@@ -1069,7 +1000,7 @@ end)
 
 makeSectionTitle(homePage, "SUPPORTED GAMES", "GAME ĐƯỢC HỖ TRỢ", "SELECT TO OPEN", "CHỌN ĐỂ MỞ")
 homeGrid, homeGridLayout = makeCardGrid(homePage, "HomeGameGrid")
-renderGameGrid(homeGrid, GAMES)
+renderGrid(homeGrid, GAMES)
 
 -- GAME SELECTOR PAGE
 local selectorPage = makePage("Game Selector")
@@ -1099,9 +1030,9 @@ localize(selectorSearch, "Search games...", "Tìm trò chơi...", "PlaceholderTe
 
 makeSectionTitle(selectorPage, "ALL GAMES", "TẤT CẢ GAME", "GAME LIBRARY", "THƯ VIỆN GAME")
 selectorGrid, selectorGridLayout = makeCardGrid(selectorPage, "SelectorGameGrid")
-renderGameGrid(selectorGrid, GAMES)
+renderGrid(selectorGrid, GAMES)
 
-local function applyGameSearch()
+selectorSearch:GetPropertyChangedSignal("Text"):Connect(function()
     local query = string.lower(selectorSearch.Text)
     for _, child in ipairs(selectorGrid:GetChildren()) do
         if child:IsA("Frame") and child.Name:match("Card$") then
@@ -1110,15 +1041,13 @@ local function applyGameSearch()
             if gameInfo then
                 local searchable = string.lower(
                     gameInfo.Name .. " " .. (gameInfo.NameVi or "") .. " " ..
-                    gameInfo.Id .. " " .. (gameInfo.Category or "") .. " " ..
-                    (gameInfo.CategoryVi or "")
+                    gameInfo.Id .. " " .. gameInfo.Category .. " " .. (gameInfo.CategoryVi or "")
                 )
                 child.Visible = query == "" or string.find(searchable, query, 1, true) ~= nil
             end
         end
     end
-end
-selectorSearch:GetPropertyChangedSignal("Text"):Connect(applyGameSearch)
+end)
 
 -- FAVORITES PAGE
 local favoritesPage = makePage("Favorites")
@@ -1168,9 +1097,10 @@ makePageHeader(
     utilitiesPage,
     "Utilities",
     "Tiện ích",
-    "Open your installed utility modules.",
-    "Mở các module tiện ích đã cài đặt."
+    "Browse your independent utility library.",
+    "Danh sách các tiện ích riêng của KATO HUB."
 )
+
 makeSectionTitle(
     utilitiesPage,
     "ALL UTILITIES",
@@ -1178,12 +1108,12 @@ makeSectionTitle(
     "UTILITY LIBRARY",
     "THƯ VIỆN TIỆN ÍCH"
 )
+
 utilitiesEmpty = create("Frame", {
     Name = "UtilitiesEmpty",
     Size = UDim2.new(1, 0, 0, 115),
     BackgroundColor3 = COLORS.Surface2,
     BorderSizePixel = 0,
-    Visible = false,
 }, utilitiesPage)
 corner(utilitiesEmpty, 14)
 local utilitiesEmptyText = create("TextLabel", {
@@ -1200,6 +1130,7 @@ localize(
     "No utilities added yet\nAdd entries in the UTILITIES table.",
     "Chưa có tiện ích nào\nThêm mục trong bảng UTILITIES."
 )
+
 utilityGrid, utilityGridLayout = makeCardGrid(utilitiesPage, "UtilityGrid")
 renderUtilityGrid(utilityGrid)
 
@@ -1324,9 +1255,11 @@ local NAV_ITEMS = {
 }
 
 local function setActivePage(pageName)
-    if not pageObjects[pageName] then return end
-    currentPage = pageName
+    if not pageObjects[pageName] then
+        return
+    end
 
+    currentPage = pageName
     for name, page in pairs(pageObjects) do
         page.Visible = name == pageName
         if page.Visible then
@@ -1339,9 +1272,11 @@ local function setActivePage(pageName)
         tween(button, {
             BackgroundColor3 = selected and COLORS.Surface3 or COLORS.Surface,
         }, 0.12)
+
         local accent = button:FindFirstChild("Accent")
         local icon = button:FindFirstChild("Icon")
         local label = button:FindFirstChild("Label")
+
         if accent then accent.Visible = selected end
         if icon then icon.TextColor3 = selected and COLORS.PurpleLight or COLORS.Muted end
         if label then label.TextColor3 = selected and COLORS.Text or COLORS.Muted end
@@ -1413,12 +1348,16 @@ for index, item in ipairs(NAV_ITEMS) do
     button.Activated:Connect(function()
         setActivePage(item.Name)
     end)
+
     navButtons[item.Name] = button
 end
 
 -- RESPONSIVE LAYOUT
 local function updateGridLayout(grid, layout)
-    if not grid or not layout then return end
+    if not grid or not layout then
+        return
+    end
+
     if isMobile then
         layout.CellSize = UDim2.new(1, 0, 0, 178)
         layout.CellPadding = UDim2.fromOffset(0, 10)
@@ -1426,6 +1365,7 @@ local function updateGridLayout(grid, layout)
         layout.CellSize = UDim2.new(0.5, -7, 0, 178)
         layout.CellPadding = UDim2.fromOffset(12, 10)
     end
+
     task.defer(function()
         if grid and grid.Parent then
             grid.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 2)
@@ -1449,7 +1389,9 @@ local function refreshLayout()
     end
 
     normalWindowSize = Vector2.new(width, height)
-    if isMinimized then return end
+    if isMinimized then
+        return
+    end
 
     window.AnchorPoint = Vector2.new(0.5, 0.5)
     window.Position = UDim2.fromScale(0.5, 0.5)
@@ -1464,6 +1406,7 @@ local function refreshLayout()
         sidebar.Size = UDim2.new(0, 49, 1, 0)
         pageHost.Position = UDim2.new(0, 49, 0, 0)
         pageHost.Size = UDim2.new(1, -49, 1, 0)
+
         sidebarTitle.Visible = false
         sidebarStatus.Visible = false
         brandSub.Visible = false
@@ -1492,6 +1435,7 @@ local function refreshLayout()
         sidebar.Size = UDim2.new(0, 180, 1, 0)
         pageHost.Position = UDim2.new(0, 180, 0, 0)
         pageHost.Size = UDim2.new(1, -180, 1, 0)
+
         sidebarTitle.Visible = true
         sidebarStatus.Visible = true
         brandSub.Visible = true
@@ -1536,7 +1480,7 @@ local function refreshLayout()
     updateGridLayout(utilityGrid, utilityGridLayout)
 end
 
--- DRAG WINDOW: TOPBAR ONLY, EXCLUDING CONTROL BUTTONS
+-- DRAG WINDOW (topbar only; buttons are excluded)
 local function pointInside(guiObject, point)
     local position = guiObject.AbsolutePosition
     local size = guiObject.AbsoluteSize
@@ -1551,12 +1495,15 @@ topbar.InputBegan:Connect(function(input)
         and input.UserInputType ~= Enum.UserInputType.Touch then
         return
     end
+
     if pointInside(minimizeButton, input.Position) or pointInside(closeButton, input.Position) then
         return
     end
+
     dragging = true
     dragStart = input.Position
     dragStartPosition = window.Position
+
     input.Changed:Connect(function()
         if input.UserInputState == Enum.UserInputState.End then
             dragging = false
@@ -1565,7 +1512,10 @@ topbar.InputBegan:Connect(function(input)
 end)
 
 inputChangedConnection = UserInputService.InputChanged:Connect(function(input)
-    if not dragging or isMinimized then return end
+    if not dragging or isMinimized then
+        return
+    end
+
     if input.UserInputType == Enum.UserInputType.MouseMovement
         or input.UserInputType == Enum.UserInputType.Touch then
         local delta = input.Position - dragStart
@@ -1589,12 +1539,34 @@ languageButton.Activated:Connect(function()
     languageButton.Text = currentLanguage == "EN" and "ENGLISH  ▾" or "TIẾNG VIỆT  ▾"
     applyLanguage()
 
-    renderGameGrid(homeGrid, GAMES)
-    renderGameGrid(selectorGrid, GAMES)
+    -- Update the game-card text without rebuilding the Home / Selector pages.
+    for _, grid in ipairs({ homeGrid, selectorGrid }) do
+        if grid then
+            for _, gameInfo in ipairs(GAMES) do
+                local card = grid:FindFirstChild(gameInfo.Id .. "Card")
+                if card then
+                    local category = card:FindFirstChild("Category")
+                    local title = card:FindFirstChild("Title")
+                    local description = card:FindFirstChild("Description")
+                    local openButton = card:FindFirstChild("OpenButton")
+
+                    if category then category.Text = getGameText(gameInfo, "Category") end
+                    if title then title.Text = getGameText(gameInfo, "Name") end
+                    if description then description.Text = getGameText(gameInfo, "Description") end
+                    if openButton then
+                        openButton.Text = gameInfo.Enabled
+                            and (currentLanguage == "VI" and "MỞ MENU  →" or "OPEN MENU  →")
+                            or (currentLanguage == "VI" and "SẮP RA MẮT" or "COMING SOON")
+                    end
+                end
+            end
+        end
+    end
+
+    -- Favorites / Recently Used are rebuilt so their card text matches the language.
     rebuildFavorites()
     rebuildRecent()
     renderUtilityGrid(utilityGrid)
-    applyGameSearch()
 end)
 
 -- MINIMIZE / CLOSE
@@ -1622,9 +1594,12 @@ closeButton.Activated:Connect(function()
     screen.Enabled = false
 end)
 
--- KEYBOARD TOGGLE: RIGHT CTRL / RIGHT SHIFT
+-- KEYBOARD TOGGLE (RIGHT CTRL / RIGHT SHIFT)
 inputBeganConnection = UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
+    if processed then
+        return
+    end
+
     if input.KeyCode == Enum.KeyCode.RightControl
         or input.KeyCode == Enum.KeyCode.RightShift then
         screen.Enabled = not screen.Enabled
@@ -1637,6 +1612,7 @@ local function bindCamera(camera)
         cameraConnection:Disconnect()
         cameraConnection = nil
     end
+
     if camera then
         cameraConnection = camera:GetPropertyChangedSignal("ViewportSize"):Connect(refreshLayout)
     end
@@ -1712,8 +1688,10 @@ local introSubtitle = create("TextLabel", {
 }, intro)
 
 -- INTRO FADE + WINDOW POP-IN
+-- Use task.spawn so the UI initialization finishes before the animation starts.
 task.spawn(function()
     task.wait(0.65)
+    local fadeInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     tween(intro, { BackgroundTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
     tween(introLogo, { BackgroundTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
     tween(introTitle, { TextTransparency = 1 }, 0.35, Enum.EasingStyle.Quad)
@@ -1723,7 +1701,10 @@ task.spawn(function()
     if intro and intro.Parent then
         intro:Destroy()
     end
-    if not screen.Parent then return end
+
+    if not screen.Parent then
+        return
+    end
 
     window.Visible = true
     local targetSize = window.Size
@@ -1731,7 +1712,7 @@ task.spawn(function()
     tween(window, { Size = targetSize }, 0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 end)
 
--- CLEAN UP CONNECTIONS IF GUI IS DESTROYED
+-- CLEAN UP CONNECTIONS IF THE GUI IS DESTROYED
 screen.Destroying:Connect(function()
     if cameraConnection then cameraConnection:Disconnect() end
     if cameraChangedConnection then cameraChangedConnection:Disconnect() end
@@ -1739,6 +1720,4 @@ screen.Destroying:Connect(function()
     if inputChangedConnection then inputChangedConnection:Disconnect() end
 end)
 
-print("[KATO HUB] Main Menu v2.2.2 loaded successfully")
-print("[KATO HUB] Utilities and game entries use local ModuleScripts")
-print("[KATO HUB] Toggle: RightControl / RightShift")
+print("[KATO HUB] Main Menu v2.2.2 Utilities Activate loaded successfully")
